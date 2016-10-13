@@ -13,4 +13,5 @@ http://www.generegulation.info/index.php/nuctools
 we are currently preparing manuscript and will add here more information, usage instruction and test data set soon.
 The project is under development now.
 
-## Developers: Yevhen Vainshtein and Vladimir B. Teif
+### Developers: 
+Yevhen Vainshtein and Vladimir B. Teif
