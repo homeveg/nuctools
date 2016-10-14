@@ -1,5 +1,67 @@
 #!/usr/local/bin/perl
 
+=head1 NAME
+
+extract_chr_bed.pl - Splits a standard bed file with mapped reads into smaller bed files per each chromosome 
+
+=head1 SYNOPSIS
+
+extract_chr_bed.pl -in all_data.bed -out output_name_template -p [<pattern>|all] [-help] 
+
+ Required arguments:
+    -in       input BED file
+    -out      output BED file name template (each newly created bed file will have following name: chrN.output_name.bed)
+	-p        chromosome name pattern (For example: chr1|chromosome1 e.t.c.). Use "all" to extract all chromosomes from input bed
+
+ Options:
+    -help -h  Help
+    
+ Example usage:
+    extract_chr_bed.pl -in all_data.bed -out output_name -p "chr10" [-help]
+	
+=head1 DESCRIPTION
+
+
+=head2 NucTools 1.0 package.
+
+ NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
+
+=head2 extract_chr_bed.pl
+
+ extract_chr_bed.pl reads standard BED file and split it by chromosomes using specified pattern. Each newly generated file for each chromosome saved using output filename template provided as one of the required parameters 
+ 
+=head1 AUTHORS
+
+=over
+
+=item 
+ Yevhen Vainshtein <yevhen.vainshtein@igb.fraunhofer.de>
+ 
+=item 
+ Vladimir Teif
+ 
+=back
+ 
+=head1 LICENSE
+
+ Copyright (C) 2014-2016 Yevhen Vainshtein
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+=cut
+
 ###==================================================================================================
 ### Splits a standard bed file with mapped reads into smaller bed files per each chromosome
 ### (c) Yevhen Vainshtein, Vladimir Teif
@@ -12,19 +74,27 @@
 ###==================================================================================================
 
 use strict 'vars';
+use Getopt::Long;
+use Pod::Usage;
+
+# Variables set in response to command line arguments
+# (with defaults)
+
 my $usage = "$0 -input=<in.bed> -output=<out.bed> -pattern=<pattern>\n";
 my $infile;
 my $outfile="";
 my $pattern;
+my $needsHelp;
 
-if (@ARGV != 0) {
-    foreach my $comand_line_flag (@ARGV) {
-	if ($comand_line_flag =~ /-input=(.*)/i) { $infile = $1; }
-	if ($comand_line_flag =~ /-output=(.*)/i) { $outfile = $1;}
-	if ($comand_line_flag =~ /-pattern=(.*)/i) { $pattern = $1;}
-    }
-}
-else { die $usage; }
+my $options_okay = &Getopt::Long::GetOptions(
+	'input|in=s' => \$infile,
+	'output|out=s'   => \$outfile,
+	'pattern|p=s' => \$pattern,
+	'help|h'      => \$needsHelp
+);
+
+# Check to make sure options are specified correctly and files exist
+&check_opts();
 
 
 
@@ -58,7 +128,6 @@ my $not_zero_counter=0;
 my $string_counter=0;
 my $BUFFER_SIZE = 1024*4;
 my @origin; # to keep source data
-
 
 
 if ($pattern eq "all") {
@@ -97,7 +166,8 @@ if ($pattern eq "all") {
 
 
 else {
-    open(OUT, ">$outfile") || die "Can't open $outfile for writing: $!\n";
+	my $out_filename= "$pattern"."$outfile".".bed";
+    open(OUT, ">$out_filename") || die "Can't open $out_filename for writing: $!\n";
     while ((my $n = read(IN, $buffer, $BUFFER_SIZE)) !=0) {
         if ($n >= $BUFFER_SIZE) {
         $buffer .= <IN>;
@@ -122,3 +192,34 @@ else {
 }
 
 close(IN);
+
+
+# Check for problem with the options or if user requests help
+sub check_opts {
+	if ($needsHelp) {
+		pod2usage( -verbose => 2 );
+	}
+
+	if ( !$options_okay ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Error specifying options."
+		);
+	}
+	if ( !-e $infile ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Cannot find input BED file: '$infile!'\n"
+		);
+	}
+	if ( -e $outfile ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "'$outfile' exists in target folder\n"
+		);
+	}
+
+}
