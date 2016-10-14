@@ -1,4 +1,4 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -6,18 +6,23 @@ extract_chr_bed.pl - Splits a standard bed file with mapped reads into smaller b
 
 =head1 SYNOPSIS
 
-extract_chr_bed.pl -in all_data.bed -out output_name_template -p [<pattern>|all] [-help] 
+extract_chr_bed.pl -in all_data.bed.gz -out output_name_template -p [<pattern>|all] [-help] 
 
  Required arguments:
-    -in       input BED file
-    -out      output BED file name template (each newly created bed file will have following name: chrN.output_name.bed)
-	-p        chromosome name pattern (For example: chr1|chromosome1 e.t.c.). Use "all" to extract all chromosomes from input bed
+    -in       input BED or compressed BED.GZ file
+    -out      output BED file name template (each newly created bed file will have following name: chrN.output_name.bed.gz)
+    -p        chromosome name pattern (For example: chr1|chromosome1 e.t.c.).
+    -chrNr    set the number of chromosomes to extract (default:22 - for mouse. chromosomes X, Y and M should be extracted using corresponding pattern)
 
  Options:
     -help -h  Help
     
  Example usage:
-    extract_chr_bed.pl -in all_data.bed -out output_name -p "chr10" [-help]
+    extract_chr_bed.pl --input=all_data.bed --output=output_name --pattern="chrX" --chromosomes=22
+	
+	OR
+	
+    extract_chr_bed.pl -in all_data.bed -out output_name -p "chrX" -chrNr 22
 	
 =head1 DESCRIPTION
 
@@ -28,7 +33,7 @@ extract_chr_bed.pl -in all_data.bed -out output_name_template -p [<pattern>|all]
 
 =head2 extract_chr_bed.pl
 
- extract_chr_bed.pl reads standard BED file and split it by chromosomes using specified pattern. Each newly generated file for each chromosome saved using output filename template provided as one of the required parameters 
+ extract_chr_bed.pl reads standard BED file and split it by chromosomes using specified pattern. Each newly generated file for each chromosome saved using output filename template provided as one of the required parameters. Input bed file can be compressed with gzip and have *.bed.gz extension. Output file automatically saved compressed as *.bed.gz. If no gzip found files will be saved in flat text format
  
 =head1 AUTHORS
 
@@ -41,10 +46,14 @@ extract_chr_bed.pl -in all_data.bed -out output_name_template -p [<pattern>|all]
  Vladimir Teif
  
 =back
+
+=head2 Last modified
+
+ 14 October 2016
  
 =head1 LICENSE
 
- Copyright (C) 2014-2016 Yevhen Vainshtein
+ Copyright (C) 2012-2016 Yevhen Vainshtein, Vladimir Teif
 
     This program is free software; you can redistribute it and/or modify
     it under the terms of the GNU General Public License as published by
@@ -62,51 +71,49 @@ extract_chr_bed.pl -in all_data.bed -out output_name_template -p [<pattern>|all]
 
 =cut
 
-###==================================================================================================
-### Splits a standard bed file with mapped reads into smaller bed files per each chromosome
-### (c) Yevhen Vainshtein, Vladimir Teif
-### 
-### extract_chr_bed.pl
-### NucTools 1.0
-###==================================================================================================
-###
-### last changed: 17 July 2016
-###==================================================================================================
 
 use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
+use IO::Uncompress::Gunzip qw($GunzipError);
+use IO::Compress::Gzip qw(gzip $GzipError) ;
 
 # Variables set in response to command line arguments
 # (with defaults)
 
-my $usage = "$0 -input=<in.bed> -output=<out.bed> -pattern=<pattern>\n";
 my $infile;
+my $infile_name;
 my $outfile="";
 my $pattern;
 my $needsHelp;
+my $chrNr=1;
 
 my $options_okay = &Getopt::Long::GetOptions(
-	'input|in=s' => \$infile,
+	'input|in=s' => \$infile_name,
 	'output|out=s'   => \$outfile,
 	'pattern|p=s' => \$pattern,
+	'chromosomes|chrNr=s' => \$chrNr,
 	'help|h'      => \$needsHelp
 );
 
 # Check to make sure options are specified correctly and files exist
 &check_opts();
 
+print STDERR "input BED file: $infile_name\n";
+print STDERR "output BED file: $outfile\n";
+print STDERR "chromosome ID template: $pattern\n";
+print STDERR "total number of chromosome to extract: $chrNr\n";
 
-
-print STDERR "infile: $infile\n";
-print STDERR "outfile: $outfile\n";
-print STDERR "chromosome: $pattern\n";
-
-my @chromosomes = ("chr1","chr2","chr3","chr4","chr5","chr6","chr7","chr8","chr9","chr10","chr11","chr12","chr13","chr14","chr15","chr16","chr17","chr18","chr19","chr20","chr21","chr22","chrX","chrY", "chrM");
-my @FHs = ("CHR1","CHR2","CHR3","CHR4","CHR5","CHR6","CHR7","CHR8","CHR9","CHR10","CHR11","CHR12","CHR13","CHR14","CHR15","CHR16","CHR17","CHR18","CHR19","CHR20","CHR21","CHR22","CHRX","CHRY", "CHRM");
+my @chromosomes;
+my @FHs;
 my @OUT_FHs;
 
-open(IN, $infile) or die "error: $infile cannot be opened: $!\n";
+if ( $infile_name =~ (/.*\.gz$/) ) {
+	$infile = IO::Uncompress::Gunzip->new( $infile_name )
+    or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+}
+else { open( $infile, "<", $infile_name ) or die "error: $infile_name cannot be opened:$!"; }
+
 my $buffer = "";
 my $sz_buffer = 0;
 my $timer2 = time();
@@ -116,31 +123,38 @@ my $marker_count = 0;
 my $regex_split_tab='.*\t(.*)';
 my $regex_split_newline='\n';
 
-my $filesize = -s $infile; #determine file size in bytes
+my $filesize = -s $infile_name; #determine file size in bytes
 my $size_counter_step=int($filesize/100);
 $filesize = int($filesize/1048576); # filesize in megabytes
 
-print STDERR "Reading $infile file of $filesize MBs. Please wait...\n";
+print STDERR "Reading $infile_name file of $filesize MBs. Please wait...\n";
 
 my $processed_memory_size = 0;
 my $offset=0;
 my $not_zero_counter=0;
 my $string_counter=0;
 my $BUFFER_SIZE = 1024*4;
-my @origin; # to keep source data
 
+if ($chrNr > 1) {
+    print STDERR "extracting $chrNr chromosomes...\n";
+	
+	for (my $chrID=1; $chrID <= $chrNr; $chrID++ ) {
+		my $chrname = $pattern.$chrID;
+		my $FH = uc($chrname);
+		push (@chromosomes, $chrname);
+		push (@FHs, $FH);
+	}
 
-if ($pattern eq "all") {
-    print STDERR "extracting all chromosomes...\n";
     for (my $i=0; $i<=$#chromosomes; $i++ ) {
-      my $out_filename= "$chromosomes[$i]"."$outfile".".bed";
-      push(@OUT_FHs, "*$FHs[$i]");
-      open($OUT_FHs[$i], ">$out_filename") || die "Can't open $out_filename for writing: $!\n";
+		push(@OUT_FHs, "*$FHs[$i]");
+		my $out_filename_gz= "$chromosomes[$i]"."."."$outfile".".bed.gz";
+		my $out_filename= "$chromosomes[$i]"."."."$outfile".".bed";
+		$OUT_FHs[$i] = new IO::Compress::Gzip ($out_filename_gz) or open ">$out_filename" or die "Can't open $out_filename for writing: $!\n";
     }
     
-    while ((my $n = read(IN, $buffer, $BUFFER_SIZE)) !=0) {
+    while ((my $n = read($infile, $buffer, $BUFFER_SIZE)) !=0) {
         if ($n >= $BUFFER_SIZE) {
-        $buffer .= <IN>;
+        $buffer .= <$infile>;
         }
         my @lines = split(/$regex_split_newline/o, $buffer);
         # process each line in zone file
@@ -154,44 +168,44 @@ if ($pattern eq "all") {
         $processed_memory_size += $n;
         $offset += $n;
         if(int($processed_memory_size/1048576)>= $filesize/10) {
-            print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
-            #last;
+            print STDERR "."; $processed_memory_size=0;
             }
         undef @lines;
         $buffer = "";
     }
     foreach my $OUTFH (@OUT_FHs) { close($OUTFH); } # close output files
-    print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\nDone!\n";
+    print STDERR "done in ", time()-$timer2, " seconds\n";
 } 
 
 
 else {
-	my $out_filename= "$pattern"."$outfile".".bed";
-    open(OUT, ">$out_filename") || die "Can't open $out_filename for writing: $!\n";
-    while ((my $n = read(IN, $buffer, $BUFFER_SIZE)) !=0) {
+	my $out_filename_gz= $pattern.".".$outfile.".bed.gz";
+	my $out_filename= $pattern.".".$outfile.".bed";
+	my $OUT_FHs = new IO::Compress::Gzip ($out_filename_gz) or open ">$out_filename" or die "Can't open $out_filename for writing: $!\n";
+
+    while ((my $n = read($infile, $buffer, $BUFFER_SIZE)) !=0) {
         if ($n >= $BUFFER_SIZE) {
-        $buffer .= <IN>;
+        $buffer .= <$infile>;
         }
         my @lines = split(/$regex_split_newline/o, $buffer);
         # process each line in zone file
         foreach my $line (@lines) {
-          if ($line =~ m/$pattern\s/) { print OUT "$line\n"; }
+          if ($line =~ m/$pattern\s/) { print $OUT_FHs "$line\n"; }
         }
     $processed_memory_size += $n;
     $offset += $n;
     if(int($processed_memory_size/1048576)>= $filesize/10) {
-        print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
-        #last;
-        }
+            print STDERR "."; $processed_memory_size=0;
+	}
     undef @lines;
     $buffer = "";
     }
     
-    print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\nDone!\n";
-    close(OUT);  
+    print STDERR "done in ", time()-$timer2, " seconds\n";
+    close($OUT_FHs);  
 }
 
-close(IN);
+close($infile);
 
 
 # Check for problem with the options or if user requests help
@@ -207,11 +221,11 @@ sub check_opts {
 			-message => "Error specifying options."
 		);
 	}
-	if ( !-e $infile ) {
+	if ( !-e $infile_name ) {
 		pod2usage(
 			-exitval => 2,
 			-verbose => 1,
-			-message => "Cannot find input BED file: '$infile!'\n"
+			-message => "Cannot find input BED file: '$infile_name!'\n"
 		);
 	}
 	if ( -e $outfile ) {
