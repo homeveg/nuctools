@@ -1,15 +1,140 @@
-#!/usr/local/bin/perl
-###
-###==================================================================================================
-### Calculates aggregate profile of sequencing read density around genomic regions
-### (c) Yevhen Vainshtein, Vladimir Teif
-### 
-### aggregate_profile.pl
-### NucTools 1.0
-###==================================================================================================
-###
-### last changed: 19 July 2016
-###==================================================================================================
+#!/usr/bin/perl
+
+=head1 NAME
+
+aggregate_profile.pl - Calculates aggregate profile of sequencing read density around genomic regions
+
+=head1 SYNOPSIS
+
+perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--expression=<gene_expression.rpkm>] --aligned=<output.aligned.tab.gz> --average_aligned=<output.aggregare.txt> [ --path2log=<AggregateProfile.log> --region_start_column=<column Nr.> --region_end_column=<column Nr.> --strand_column=<column Nr.> --chromosome_col=<column Nr.> --GeneId_column=<column Nr.> --Expression_columnID=<column Nr.> --Methylation_columnID=<column Nr.> --Methylation_columnID2=<column Nr.> --upstream_delta=<column Nr.> --downstream_delta==<column Nr.> --upper_threshold=<column Nr.> --lower_threshold=<column Nr.> --Methylation_threshold=<value|range_start-range_end> --overlap=<length> --library_size=<Nr.> --remove_minus_strand | --ignore_strand | --fixed_strand=[plus|minus] --invert_strand --input_occ --score --dont_save_aligned --Cut_tail --chromosome=chrN --AgregateProfile --GeneLengthNorm --LibsizeNorm --PerBaseNorm --useCentre --use_default --verbose --help ]
+
+ Required arguments:
+ 
+  input files:
+    --input | -in             Path to input *.OCC or *.OCC.GZ file 
+    --regions | -reg          Regions annotation (genes annotation) table, containing information about alignment regions starts and stops as well as chromosome and strand information for gene lists (optional)
+
+  output files:
+    --aligned | -al           File name template for output table containing all aligned regions with their occupancy values
+    --average_aligned | -av   File name template for output file containing aggregate profile data
+    
+ Options:
+ 
+  additional files:
+    --expression | -exp       RPM expression values and flags
+    --path2log | -log         path to program log file (default: AggregateProfile.log in working directory)
+    
+  define column numbers in the input regions annotation file (Nr. of the very first column is 0):
+    --GeneId_column | -idC         GeneId column Nr. (default: 0)
+    --Methylation_columnID | -m1C  "Nr. of reads where the nucleotide was methylated (5mC cytosines)" column Nr. (default: 2)  
+    --Methylation_columnID2 | -m2C "Total Nr. of reads including methylated (CpG)" column Nr. (default: 3)
+    --chromosome_col | -chrC       chromosome column Nr. (default: 6)
+    --strand_column | -strC        strand column Nr. (default: 7)
+    --region_start_column | -sC    region_start column Nr. (default:8)
+    --region_end_column | -eC      region_end column Nr. (default:9)
+ 
+  expression related flags and parameters (Nr. of the very first column is 0):
+    --Expression_columnID | -expC  Expression flag column Nr. in expression file (default: 7)
+    --Expression_flag | -eFlag     Expression flag: remove genes marked "excluded" (default value) from calculations
+    
+  methylation-related column IDs and flags:
+    --Apply_methylation_filter | -useMeth   activate the methylation filtering mode - uses for analysis only ranges with methylation within the range defined by --Methylation_threshold parameter
+    --Methylation_threshold | -mT           Set the threshold for the methylation value. Keep only sites with methylation within the range. Default range: 50-100%.
+    
+  analysis-related flags and parameters:
+    --upstream_delta | -upD       number of base pairs upstream from aligned starts considered in calculations (Default: 100)
+    --downstream_delta | -downD   number of base pairs downstream from aligned starts considered in calculations (Default: 1500)
+    --upper_threshold | -upT      set upper occupancy threshold to remove mapping/sequencing artifacts (Default: 10000)
+    --lower_threshold | -loT      set lower occupancy threshold to avoid ORFs with low coverage (Default: 0)
+    --overlap | -ov               remove overlapping ranges from analysis: region starts should be located at least --overlap bases from each other (Default: 100)
+    --library_size | -lS          sequencing library size (to use with -LibsizeNorm)
+    --chromosome | -chr           limit analysis to regions derived from specified chromosome only
+    
+    --useCenter | -uC               Use middle of the region for alignment instead of start of the region
+    --remove_minus_strand  | -noMS  remove all genes marked as "minus" strand
+    --ignore_strand | -noS          ignore strand information (mark all as "plus" strand)
+    --fixed_strand | -fixS          ignore strand information and assign selected
+    --invert_strand | -invS         invert start and stop strands
+    --input_occ | -inOCC            use occupancy file as an input (*.occ or *.occ.gz)
+    --score                         calculate RPM value
+    --dont_save_aligned | -discA    do not save the generated aligned matrix
+    --Cut_tail | -noTail            do not use reads downstream from regions end within the downstream_delta
+    
+  normalization options
+    --AgregateProfile | -aggr       calculates aggregate profile representing the average occupancy
+    --GeneLengthNorm | -glN         normalize each profile to the region length (gene length)
+    --LibsizeNorm | -lsN            perform sequencing library size normalization
+    --PerBaseNorm | -pbN            compensate for the transcript length difference 
+    --verbose'                      display additional run info
+    --help|h'                       display detailed help
+ 
+ 
+ Example usage:
+ 
+Example 1:
+ Generate aggregate profile based on the occupancy data for chromosome 1 only, extracted from Gzip-compressed occupancy file "name_template.occ.gz". The resulting aggregate profile will be saved to chr1.name_template.aggregate.txt and the underlying aligned matrix to chr1.name_template.aligned.txt.gz Whole data set will be normalized to the sequencing library size; aligned data will be compensated for a differences in transcript length; All reads downstream from transcription termination site but within the range of default "downstream_delta" (1500) will be ignored.
+	
+aggregate_profile.pl --input=name_template.occ.gz --regions=genes_annotations.txt --aligned=chr1.name_template.aligned.txt.gz --average_aligned=chr1.name_template.aggregate.txt --LibsizeNorm --PerBaseNorm --Cut_tail --library_size=20000000 --chromosome=chr1
+	
+ OR
+	
+aggregate_profile.pl -in chr1.name_template.occ.gz -reg genes_annotations.txt -al chr1.name_template.aligned.txt.gz -av chr1.name_template.aggregate.txt --LibsizeNorm --PerBaseNorm --Cut_tail -lS 20000000 -chr chr1
+
+Example 2:
+ Generate aggregate profile based on the occupancy data for chromosome 1 only, extracted from Gzip-compressed occupancy file "name_template.occ.gz". The resulting aggregate profile will be saved to chr1.name_template.aggregate.txt. Aligned matrix will not be saved.
+ Align average occupancy plots at the center of a reference regions. No strand information available. Regions coordinates are taken from the "regions_annotations.txt" file. All calculation will be done only for bases with methylation in the range from 65 to 95% (Nr. of reads where the nucleotide was methylated divided to the total Nr. of reads)
+	
+aggregate_profile.pl --input=name_template.occ.gz --regions=regions_annotations.txt --dont_save_aligned --Apply_methylation_filter --Methylation_threshold=65-95 --useCenter --ignore_strand --average_aligned=Meth65_95.name_template.aggregate.txt --LibsizeNorm --library_size=20000000
+    
+ OR
+    
+aggregate_profile.pl -in name_template.occ.gz -reg regions_annotations.txt -discA -useMeth -mT=65-95 -uC -noS -av Meth65_95.name_template.aggregate.txt --LibsizeNorm -lS 20000000
+
+=head1 DESCRIPTION
+
+=head2 NucTools 1.0 package.
+
+ NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
+
+=head2 bed2occupancy_average.pl
+
+ bed2occupancy_average.pl takes as input a bed file with coordinates of genomic features (promoters, enhancers, chromatin domains, TF binding sites, etc), and the files with continuous chromosome-wide occupancy (nucleosome occupancy, TF distribution, etc). Calculates normalized occupancy profiles for each of the features, as well as the aggregate profile representing the average occupancy centred at the middle of the feature
+ 
+=head1 AUTHORS
+
+=over
+
+=item 
+ Yevhen Vainshtein <yevhen.vainshtein@igb.fraunhofer.de>
+ 
+=item 
+ Vladimir Teif
+ 
+=back
+
+=head2 Last modified
+
+ 16 October 2016
+ 
+=head1 LICENSE
+
+ Copyright (C) 2012-2016 Yevhen Vainshtein, Vladimir Teif
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+=cut
 
 
 use strict "vars";
@@ -18,6 +143,10 @@ use Time::localtime;
 use Time::Local;
 #use Roman;
 use List::Util qw(sum);
+use Getopt::Long;
+use Pod::Usage;
+use IO::Uncompress::Gunzip qw($GunzipError);
+use IO::Compress::Gzip qw(gzip $GzipError) ;
 
 #  Time count Initialisation
 my $timer1 = time();
@@ -34,119 +163,122 @@ my $delta_2 = 1500;
 my $upper_occup_threshold = 10000;
 my $lower_occup_threshold = 0;
 my $overlap = 0;
-my $remove_minus_strand = "no";
-my $ignore_strand="no";
-my $invert_strand = "no";
-my $normalize="no";
-my $GeneLengthNorm ="no";
-my $library_size_normalization = "no";
-my $apply_DivSum_normalization="no";
-my $PerBaseNorm = "no";
-my $Cut_tail="no";
-my $dont_save_aligned="no";
-my $apply_methylation_filter = "no";
-my $use_centre = "no";
+my $remove_minus_strand;
+my $ignore_strand;
+my $invert_strand;
+my $normalize;
+my $GeneLengthNorm;
+my $library_size_normalization;
+my $apply_DivSum_normalization;
+my $PerBaseNorm;
+my $Cut_tail;
+my $dont_save_aligned;
+my $apply_methylation_filter;
+my $use_centre;
 
+my $GeneId_column = 0;
 my $chromosome_nr_col=6;
 my $strand_column=7;
 my $region_start_column=8;
 my $region_end_column=9;
-my $GeneId_column = 0;
-my $GeneExpression_column ;
+
+my $GeneExpression_column = 7;
 
 my $methylation_column=2;
 my $methylation_column2=3;
 my $methylation_range_right=1000000000000000;
 my $methylation_range_left=50;
+my $Methylation_threshold;
 
 my $in_file; 
 my ($out_path1, $out_path2); 
 my $fixed_strand="plus";
-my $input_occ="no";
-my $calc_score="no";
+my $input_occ;
+my $calc_score;
 my $Chromosome="chr1";
 
 my $Gene_annotation_table;
 my $library_size;
 my $expression_file;
+my $Expression_flag="excluded";
 
 my $run_log_path = "AggregateProfile.log";
+my $needsHelp;
 
-#read arguments from command line
-if (@ARGV != 0) {
-    foreach my $comand_line_flag (@ARGV) {
-	#input files
-	if ($comand_line_flag =~ /-input=(.*)/i) { $in_file = $1; } #raw reads, cental weigthed reads or occupancy data
-        if ($comand_line_flag =~ /-regions=(.*)/i) { $Gene_annotation_table = $1; } # genes annotation table
-        if ($comand_line_flag =~ /-expression=(.*)/i) { $expression_file = $1; } # RPM expreession values and flags (optional)
-	
+my $options_okay = &Getopt::Long::GetOptions(
+	# input files
+	'input|in=s' => \$in_file,
+	'regions|reg=s'   => \$Gene_annotation_table,
+	'expression|exp=s'   => \$expression_file,
 	#output files
-	if ($comand_line_flag =~ /-aligned=(.*)/i) { $out_path1 = $1; }
-	if ($comand_line_flag =~ /-average_aligned=(.*)/i) { $out_path2 = $1; }
-        if ($comand_line_flag =~ /-path2log=(.*)/i) { $run_log_path = $1; }
-	
+	'aligned|al=s' => \$out_path1,
+	'average_aligned|av=s' => \$out_path2,
+	'path2log|log' => \$run_log_path,
 	# column IDs in annotation file
-        if ($comand_line_flag =~ /-region_start_column=(.*)/i) { $region_start_column = $1; }
-        if ($comand_line_flag =~ /-region_end_column=(.*)/i) { $region_end_column = $1; }
-        if ($comand_line_flag =~ /-strand_column=(.*)/i) { $strand_column = $1; }
-        if ($comand_line_flag =~ /-chromosome_col=(.*)/i) { $chromosome_nr_col = $1; }
-        if ($comand_line_flag =~ /-GeneId_column=(.*)/i) { $GeneId_column = $1; }
-        if ($comand_line_flag =~ /-Expression_columnID=(.*)/i) { $GeneExpression_column = $1; }
-	
-	# methilation-related flags
-	if ($comand_line_flag =~ /-Apply_methylation_filter/i) { $apply_methylation_filter="yes";}   
-	if ($comand_line_flag =~ /-Methylation_columnID=(.*)/i) { $methylation_column = $1; }
-	if ($comand_line_flag =~ /-Methylation_columnID2=(.*)/i) { $methylation_column2 = $1; }
-	if ($comand_line_flag =~ /-Methylation_threshold=(.*)-(.*)/i) { $methylation_range_left=$1; $methylation_range_right=$2; }
-	elsif ($comand_line_flag =~ /-Methylation_threshold=(.*)/i) { $methylation_range_left=$1; }
-	
+	'region_start_column|sC=s' => \$region_start_column,
+	'region_end_column|eC=s'   => \$region_end_column,
+	'strand_column|strC=s' => \$strand_column,
+	'chromosome_col|chrC=s'   => \$chromosome_nr_col,
+	'GeneId_column|idC=s'   => \$GeneId_column,
+	# expression flag column ID in expression file
+	'Expression_columnID|expC=s'   => \$GeneExpression_column,
+	'Expression_flag|eFlag=s'   => \$Expression_flag,
+	# methilation-related column IDs and flags
+	'Apply_methylation_filter|useMeth' => \$apply_methylation_filter,
+	'Methylation_columnID|m1C=s'   => \$methylation_column,
+	'Methylation_columnID2|m2C=s' => \$methylation_column2,
+	'Methylation_threshold|mT=s'   => \$Methylation_threshold,
 	# analysis settings
-        if ($comand_line_flag =~ /-upstream_delta=(.*)/i) { $delta_1 = $1; } # sequence region before aligned starts
-        if ($comand_line_flag =~ /-downstream_delta=(.*)/i) { $delta_2 = $1; } # sequence region after aligned starts
-	if ($comand_line_flag =~ /-upper_threshold=(.*)/i) { $upper_occup_threshold = $1; } # set a threshold for maximum occupancy
-	if ($comand_line_flag =~ /-lower_threshold=(.*)/i) { $lower_occup_threshold = $1; } # set a threshold for minimum occupancy
-	if ($comand_line_flag =~ /-overlap=(.*)/i) { $overlap = $1; } # remove transcripts if starts closer than 100 (default) bases
-	if ($comand_line_flag =~ /-library_size=(.*)/i) { $library_size=$1;} # library size 
-	if ($comand_line_flag =~ /-chromosome=(.*)/i) { $Chromosome = $1; }
-	if ($comand_line_flag =~ /-useCentre/i) { $use_centre = "yes"; }
-		
+	'upstream_delta|upD=s' => \$delta_1,
+	'downstream_delta|downD=s' => \$delta_2,
+	'upper_threshold|upT=s' => \$upper_occup_threshold,
+	'lower_threshold|loT=s' => \$lower_occup_threshold,
+	'overlap|ov=s' => \$overlap,
+	'library_size|lS=s' => \$library_size,
+	'chromosome|chr=s' => \$Chromosome,
 	#flags
-	if ($comand_line_flag =~ /-remove_minus_strand/i) { $remove_minus_strand="yes";} # remove all genes marked as "minus" starnd
-	if ($comand_line_flag =~ /-ignore_strand/i) { $ignore_strand="yes";} # ignore starnd information (mark all as "plus" strand)
-	if ($comand_line_flag =~ /-fixed_strand=(.*)/i) { $fixed_strand=$1;} # ignore starnd information and assign selected
-	if ($comand_line_flag =~ /-invert_strand/i) { $invert_strand="yes";} # invert start and stop strands
-	if ($comand_line_flag =~ /-input_occ/i) { $input_occ="yes";} # use occupancy file as an input (*.occ)
-	if ($comand_line_flag =~ /-score/i) { $calc_score="yes";} # calculate RPM value 
-	if ($comand_line_flag =~ /-dont_save_aligned/i) { $dont_save_aligned="yes";}
-	if ($comand_line_flag =~ /-Cut_tail/i) { $Cut_tail="yes";}
-
+	'useCenter|uC' => \$use_centre,
+	'remove_minus_strand|noMS' => \$remove_minus_strand, # remove all genes marked as "minus" strand
+	'ignore_strand|noS' => \$ignore_strand, # ignore strand information (mark all as "plus" strand)
+	'fixed_strand|fixS=s' => \$fixed_strand,  # ignore strand information and assign selected
+	'invert_strand|invS' => \$invert_strand, # invert start and stop strands
+	'input_occ|inOCC' => \$input_occ, # use occupancy file as an input (*.occ
+	'score' => \$calc_score, # calculate RPM value 
+	'dont_save_aligned|discA' => \$dont_save_aligned,
+	'Cut_tail|noTail' => \$Cut_tail,
 	#normalization options
-	if ($comand_line_flag =~ /-AgregateProfile/i) { $normalize="yes";}	
-	if ($comand_line_flag =~ /-GeneLengthNorm/i) { $GeneLengthNorm="yes";}	
-	if ($comand_line_flag =~ /-LibsizeNorm/i) { $library_size_normalization="yes";}
-	if ($comand_line_flag =~ /-PerBaseNorm/i) { $PerBaseNorm="yes";}
-	
-        if ($comand_line_flag =~ /-use_default/i) { print STDERR "using default values: \n";}
-        if ($comand_line_flag =~ /--verbose/i) { $verbose=1;}
-	
-	if ($comand_line_flag =~ /--help/i) {
-	    print STDOUT <DATA>;
-	    print STDOUT "\nPress <ENTER> button to exit... ";
-	    <STDIN>;
-	    exit;
-	}
-    }
-}
-else { warn
-  "perl -w aggregate_profile.pl -input= -regions= -expression= ",
-  "-aligned=[N] -average_aligned=[N] -path2log= ",
-  "-region_start_column=[N] -region_end_column=[N] -strand_column=[N] -chromosome_col=[N] -GeneId_column=[N] -Expression_columnID=[N] ",
-  "-Methylation_columnID=[N] -Methylation_columnID2=[N] ",
-  "-upstream_delta=[N] -downstream_delta=[N] -upper_threshold=[N] -lower_threshold=[N] -Methylation_threshold=[N|N-N] -overlap=[N] -library_size=[N] ",
-  "-remove_minus_strand | -ignore_strand | -fixed_strand=[plus|minus] -invert_strand -input_occ -score -dont_save_aligned -Cut_tail -chromosome=chrN ", 
-  "-AgregateProfile -GeneLengthNorm -LibsizeNorm -PerBaseNorm -useCentre ",
-  "-use_default --verbose --help    \n\n";
-      exit;}
+	'AgregateProfile|aggr' => \$normalize,
+	'GeneLengthNorm|glN' => \$GeneLengthNorm,
+	'LibsizeNorm|lsN' => \$library_size_normalization,
+	'PerBaseNorm|pbN' => \$PerBaseNorm,
+	'verbose' => \$verbose,
+
+	'help|h'      => \$needsHelp
+);
+
+# Check to make sure options are specified correctly and files exist
+&check_opts();
+
+# set flags
+$apply_methylation_filter = $apply_methylation_filter ? "yes" : "no";
+$use_centre = $use_centre ? "yes" : "no";
+$remove_minus_strand = $remove_minus_strand ? "yes" : "no";
+$ignore_strand = $ignore_strand ? "yes" : "no";
+$invert_strand = $invert_strand ? "yes" : "no";
+$input_occ = $input_occ ? "yes" : "no";
+$calc_score = $calc_score ? "yes" : "no";
+$dont_save_aligned = $dont_save_aligned ? "yes" : "no";
+$normalize = $normalize ? "yes" : "no";
+$GeneLengthNorm = $GeneLengthNorm ? "yes" : "no";
+$library_size_normalization = $library_size_normalization ? "yes" : "no";
+$PerBaseNorm = $PerBaseNorm ? "yes" : "no";
+$verbose = $verbose ? "yes" : "no";
+$Cut_tail = $Cut_tail ? "yes" : "no";
+
+if ($Methylation_threshold =~ /(.*)-(.*)/ ) { $methylation_range_left=$1; $methylation_range_right=$2; }
+elsif ($Methylation_threshold =~ /(.*)/ ) { $methylation_range_left=$1; }
+	   
+#read arguments from command line
 
 if ((!$library_size) && ($library_size_normalization eq "yes")) {
     #code
@@ -155,7 +287,7 @@ if ((!$library_size) && ($library_size_normalization eq "yes")) {
 }
 
 
-$out_path1 = $out_path1.".delta_".$delta_1."_".$delta_2.".txt";
+$out_path1 = $out_path1.".delta_".$delta_1."_".$delta_2.".txt.gz";
 $out_path2 = $out_path2.".delta_".$delta_1."_".$delta_2.".txt";
 # Display input parametrs
 print STDERR "======================================\n";
@@ -188,10 +320,10 @@ print STDERR "remove transcripts on minus-strands: $remove_minus_strand\n";
 print STDERR "ignore strand information (assume all on $fixed_strand): $ignore_strand\n";
 print STDERR "normalized occupancy to a number of TSS: $normalize\n";
 print STDERR "Do not save aligned occupancy profiles: $dont_save_aligned\n";
-print STDERR "Apply library size normalzation: $library_size_normalization\n";
+print STDERR "Apply library size normalization: $library_size_normalization\n";
 print STDERR "Normalize by transcripts Nr. per base: $PerBaseNorm\n";
 print STDERR "replace reads by 0 downstream from region end: $Cut_tail\n";
-print STDERR "align regions at the centre: $use_centre\n";
+print STDERR "align regions at the center: $use_centre\n";
 
 print STDERR "======================================\n";
 
@@ -207,17 +339,17 @@ close (LIST_FILE);
 
 # read columns with transcription start position, starnd, chromosomes
 
-my (@Expression,@Methylation_col1,@Methylation_col2,@Methylation);
-my @TS_positions = Read_column($region_start_column,"Region start column",\@LIST_array);
-my @TE_positions = Read_column($region_end_column,"Region end column",\@LIST_array);
-my @chromosomes = Read_column($chromosome_nr_col,"Chromosome",\@LIST_array);
-my @GeneIDs = Read_column($GeneId_column,"Region ID",\@LIST_array);
+my @TS_positions = Read_column($region_start_column,"Region start column",1,\@LIST_array);
+my @TE_positions = Read_column($region_end_column,"Region end column",1,\@LIST_array);
+my @chromosomes = Read_column($chromosome_nr_col,"Chromosome",1,\@LIST_array);
+my @GeneIDs = Read_column($GeneId_column,"Region ID",1,\@LIST_array);
 
-#@Expression = Read_column($GeneExpression_column,\@LIST_array);
+
+my (@Expression,@Methylation_col1,@Methylation_col2,@Methylation);
 
 if ($apply_methylation_filter eq "yes") {
-    @Methylation_col1 = Read_column($methylation_column,"5mC",\@LIST_array); # methylated cytosines
-    @Methylation_col2 = Read_column($methylation_column2,"CpG",\@LIST_array); # all cytosines
+    @Methylation_col1 = Read_column($methylation_column,"5mC",1,\@LIST_array); # methylated cytosines
+    @Methylation_col2 = Read_column($methylation_column2,"CpG",1,\@LIST_array); # all cytosines
     @Methylation = map { $Methylation_col1[$_] / ( $Methylation_col2[$_] + 0.0001 ) } 0..$#Methylation_col1;
 }
 
@@ -226,16 +358,22 @@ my @strands;
 
 
 if($ignore_strand eq "no") {
-    @strands = Read_column($strand_column,\@LIST_array);
+    @strands = Read_column($strand_column,"strand", 1, \@LIST_array);
+    for (my $i=1; $i<=$#strands; $i++) {
+	
+	if ( ($strands[$i] eq "plus") or ($strands[$i] eq "+") or ($strands[$i] eq "1")){ $strands[$i] = "plus";	}
+	elsif ( ($strands[$i] eq "minus") or  ($strands[$i] eq "-") or ($strands[$i] eq "-1")) { $strands[$i] = "minus";	}
+	else { warn "unidentified strand for $i ( $LIST_array[$i] ): $strands[$i]\n";}
+    }
 }
 else { @strands = ("$fixed_strand") x $#TS_positions; }
 
 if ($invert_strand eq "yes") {
     for (my $i=1; $i<=$#strands; $i++) {
 	
-	if ($strands[$i] eq "plus") { $strands[$i] = "minus";	}
-	elsif ($strands[$i] eq "minus") { $strands[$i] = "plus";	}
-	else { warn "unidentifyed strand for $i ( $LIST_array[$i] ): $strands[$i]\n";}
+	if ( ($strands[$i] eq "plus") or ($strands[$i] eq "+") ){ $strands[$i] = "minus";	}
+	elsif ( ($strands[$i] eq "minus") or  ($strands[$i] eq "-") ) { $strands[$i] = "plus";	}
+	else { warn "unidentified strand for $i ( $LIST_array[$i] ): $strands[$i]\n";}
     }
 }
 
@@ -249,7 +387,7 @@ if ( defined $expression_file) {
     while (<EXPRESSION_FLAGS>) {
 	for my $chank (split/\r\n/) {
 	    my @words = split ("\t", clean($chank));
-	    $expression_flags {$words[0]} = $words[7];
+	    $expression_flags {$words[0]} = $words[$GeneExpression_column];
 	    undef @words;
 	    }		
     }
@@ -269,8 +407,14 @@ print STDERR "\nReading occ column from $in_file file of $filesize MBs. Please w
 #@coord_occ_array=();
 my $BUFFER_SIZE = 1024*4;
 
-# open original file
-open(INPUT, $in_file) or die "error: $in_file cannot be opened\n";
+# open occupancy file
+my $inFH;
+if ( $in_file =~ (/.*\.gz$/) ) {
+	$inFH = IO::Uncompress::Gunzip->new( $in_file )
+	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+}
+else { open( $inFH, "<", $in_file ) or die "error: $in_file cannot be opened:$!"; }
+
 my $buffer = "";
 my $sz_buffer = 0;
 my $timer2 = time();
@@ -279,56 +423,25 @@ my $marker_count = 0;
 
 my $regex_split_tab='.*\t(.*)';
 my $regex_split_newline='\n';
-my $regexp_pattern1 = '(..)\t(.*)\t\[(.*)\]';
-my $regexp_pattern2 = '^(VIII|VII|VI|V|IV|IX|XIII|XII|XIV|XI|XIX|XVIII|XVII|XVI|XV|X|XX|XXIII|XXII|XXI|III|II|I)\t(\d*)\t(\d*)$';
-my $regexp_pattern3 = '(^chr\S{1,2})\s(\d*)\s(\d*)$';
-my $regexp_pattern4 = '(^\d*)\s(\d*)$';
+# occupancy file with chromosome ID as the very first column: chromosome | coordinate | occupancy
+my $regexp_pattern1 = '(^chr\S{1,2})\s(\d*)\s(\d*)$'; 
+# usual (per-chromosome) occupancy file: coordinate | occupancy
+my $regexp_pattern2 = '(^\d*)\s(\d*)$';
 my $processed_memory_size = 0;
 my $offset=0;
 
 my %occupancy;
 my %coords;
 
-while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
+while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     if ($n >= $BUFFER_SIZE) {
-    $buffer .= <INPUT>;
+    $buffer .= $inFH;
     }
     my @lines = split(/$regex_split_newline/o, $buffer);
     # process each line in zone file
     foreach my $line (@lines) {
+
 	if ($line =~ /$regexp_pattern1/) {
-	    $line =~ /$regexp_pattern1/;
-	    my $chrom = $1;
-	    my $pos = $2; $pos+=0;
-	    my $rest = $3;
-	    my @rest = split(/, \'\\t\', /, $rest);
-	    # normreads
-	    #my $plus_val = $rest[3];
-	    #my $minus_val = $rest[4];
-	    
-	    #rawreads
-	    my $plus_val = $rest[0];
-	    my $minus_val = $rest[1];
-	    
-	    $chrom =~ s/^0//;
-	    if ($invert_strand eq "no") {
-		$occupancy{$chrom}{$pos}{'plus'} =  $plus_val;
-		$occupancy{$chrom}{$pos}{'minus'} = $minus_val;
-	    }
-	    else {
-		$occupancy{$chrom}{$pos}{'minus'} =  $plus_val;
-		$occupancy{$chrom}{$pos}{'plus'} = $minus_val;
-	    }
-	}
-	#elsif ($line =~ /$regexp_pattern2/) {
-	#    my $chrom = arabic($1) if isroman($1);
-	#    my $pos = $2; $pos+=0;
-	#    my $occup_val = $3; $occup_val+=0;
-	#    $occupancy{$chrom}{$pos}=$occup_val;
-	#    
-	#    $input_occ = "yes";
-	#}
-	elsif ($line =~ /$regexp_pattern3/) {
 	    if (!$3) { next; }
 	    my $chrom=$1;
 	    my $pos = $2; $pos+=0;
@@ -337,7 +450,7 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
 	    
 	    $input_occ = "yes";
 	}
-	elsif ($line =~ /$regexp_pattern4/) {
+	elsif ($line =~ /$regexp_pattern2/) {
 	    my $chrom=$Chromosome;
 	    my $pos = $1; $pos+=0;
 	    my $occup_val = $2; $occup_val+=0;
@@ -350,7 +463,7 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
     $processed_memory_size += $n;
     $offset += $n;
     if(int($processed_memory_size/1048576)>= $filesize/10) {
-	print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
+	print STDERR "."; $processed_memory_size=0;
 	}
     undef @lines;
     $buffer = "";
@@ -358,9 +471,8 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
 
 my $duration = time()-$timer2;
 
-print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
-close(INPUT) or die $!;
-
+print STDERR " done in ", time()-$timer2, " seconds.\n";
+close($inFH) or die $!;
 
 
 my @average_occ_freq_distr;
@@ -429,7 +541,7 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 	else { $old_id=$gene_id; }    
 
 	# remove genes by expression flags
-	if ((keys %expression_flags) && ($expression_flags {$gene_id} eq "excluded")) { $removed_byExprFlag++; next; }
+	if ((keys %expression_flags) && ($expression_flags {$gene_id} eq $Expression_flag )) { $removed_byExprFlag++; next; }
      
 	 # remove minus-strand
 	if ($remove_minus_strand eq "yes") {	
@@ -650,7 +762,7 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 	
 	
 	if($library_size_normalization eq "yes") {
-	    my $norm_factor=$library_size;
+	    my $norm_factor=$library_size/1000000;
 	    if ((!$norm_factor) or ($norm_factor == 0)) { @splice_array = (0) x ($delta_1+$delta_2+1); }
 	    else {
 		my @temp_array = map { $_ / $norm_factor } @splice_array;
@@ -746,13 +858,19 @@ else { @results = @average_occ_freq_distr; }
 # writing outputs
 if ($dont_save_aligned eq "no") {
     @output_array = grep /\S/, @output_array;
-    open (OCCUP_File, ">$out_path1") or die "can't open file $out_path1 for writting: $!";
-    print OCCUP_File join("\n", @output_array),"\n";
-    close (OCCUP_File);
+	
+	my $out_file = $out_path1;
+	$out_file =~ s/(.*)\.gz$/$1/;
+	
+	# open pipe to Gzip or open text file for writting
+	my $OUT_FHs = new IO::Compress::Gzip ($out_path1) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+
+    print $OUT_FHs join("\n", @output_array),"\n";
+    close ($OUT_FHs);
     
-    $out_path1 =~ s/\.txt/\.tab/;
-    open (OCCUP_File, ">$out_path1") or die "can't open file $out_path1 for writting: $!";
-    print OCCUP_File join("\t", "Gene", "Chromosomes", "strand", "start_of_region_occ", "end_of_region_occ", "region length" , "TSS", "TTS", "transcript_length", "array length"),"\n";
+    $out_file =~ s/\.txt/\.tab/;
+    open (OCCUP_File, ">$out_file") or die "can't open file $out_file for writting: $!";
+    print OCCUP_File join("\t", "Gene", "Chromosomes", "strand", "start_of_region_occ", "end_of_region_occ", "region length" , "start", "stop", "transcript_length", "array length"),"\n";
     print OCCUP_File join("\n", @output_array2),"\n";
     close (OCCUP_File);
 
@@ -806,7 +924,7 @@ print STDERR "$message\nJob finished!\nBye!\n\n";
 exit;
 
 
-
+#------------------ non-zero counts at position N --------------------
 sub checkarray {
     my $arref = shift;
     my $N = shift;
@@ -820,19 +938,19 @@ sub checkarray {
 
 #------------------ Read specified column --------------------
 sub Read_column {
-    my ($column_number, $column_name, $array_ref) = @_;
+    my ($column_number, $column_name, $start_row, $array_ref) = @_;
     my @array = @{$array_ref};
 
     my (@column, @string);
     # read column of interest to the memory
-    for(my $j=0; $j <= $#array ; $j++ )
+    for(my $j=$start_row; $j <= $#array ; $j++ )
      {
 	    push (@string, split("[\t\r\f\n\,]",$array[$j]));
 	    if ($column_number > $#string) {push (@column,undef);}
 	    else {push (@column, $string[$column_number]);}
 	    undef @string;
      }
-    print STDERR join("\n", $column_name, "_________", $column[0], $column[1], $column[2]), "\n";
+    print STDERR join("\n", $column_name, "------------", $column[0], $column[1], $column[2]), "\n\n";
     return (@column);
 }
 
@@ -866,79 +984,31 @@ sub min {
 sub try(&) { eval {$_[0]->()} };
 sub catch(&) { $_[0]->($@) if $@ }
 
+# Check for problem with the options or if user requests help
+sub check_opts {
+	if ($needsHelp) {
+		pod2usage( -verbose => 2 );
+	}
+	if ( !$options_okay ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "\nError specifying options.\n"
+		);
+	}
+	if ( !-e $in_file ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "\nCannot find input OCC file: '$in_file!'\n"
+		);
+	}
+	if ( !-e $Gene_annotation_table ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "\nCannot find regions annotation file: '$Gene_annotation_table!'\n"
+		);
+	}
 
-__DATA__
-###==================================================================================================
-### Calculates aggregate profile of sequencing read density around genomic regions
-### (c) Yevhen Vainshtein, Vladimir Teif
-### 
-### aggregate_profile.pl
-### NucTools 1.0
-###==================================================================================================
-###
-### last changed: 19 July 2016
-###==================================================================================================
-
-
- Note: Program runs in command-line mode only
- ____________________
- Usage instruction:
- ____________________
-perl -w aggregate_profile.pl -input=OccupancyFileName -regions=GenomicRegionsFileName -expression=GeneExpressionFileName -aligned=[N] -average_aligned=[N] -path2log= -region_start_column=[N] -region_end_column=[N] -strand_column=[N] -chromosome_col=[N] -GeneId_column=[N] -Expression_columnID=[N] -Methylation_columnID=[N] -Methylation_columnID2=[N] -upstream_delta=[N] -downstream_delta=[N] -upper_threshold=[N] -lower_threshold=[N] -Methylation_threshold=[N|N-N] -overlap=[N] -library_size=[N] -remove_minus_strand | -ignore_strand | -fixed_strand=[plus|minus] -invert_strand -input_occ -score -dont_save_aligned -Cut_tail -chromosome=chrN -AgregateProfile -GeneLengthNorm -LibsizeNorm -PerBaseNorm -useCentre
-  -use_default --verbose --help. The program’s help mode contains detailed explanations.
-
-Parameters explained:
- _______________________
--input="file.occ": file with the occupancy data for a given chromosome;
--regions="regins_annotation.txt": path to a regions annotation file;
--expression="GeneExpression.txt": tab-delimited text file, with RPKM values;
--GeneId_column=[N]: number of column with gene ID (default column Nr. 0);
--chromosome_col=[N]: column with chromosome Nr. (default column Nr. 6);
--strand_column=[N]: number of columns with strand (default column Nr. 7);
--region_start_column=[N]: default column Nr. 8;
--region_end_column=[N]: default column Nr. 9;
--Expression_columnID=[N]: default column Nr. 14;
--Methylation_columnID=[N]: default column Nr. 2;
--Methylation_columnID2=[N]: default column Nr. 3;
--upstream_delta=[N]: number of base pairs upstream from aligned starts considered in calculations. Default value is 100;
--downstream_delta=[N]: number of base pairs downstream from aligned starts considered in calculations. Default value is 1500;
--upper_threshold=[N]: set upper occupancy threshold to remove mapping/sequencing artefacts. Default value is 10000;
--lower_threshold=[N]: set lower occupancy threshold to avoid ORFs with low coverage. Default value is 0;
--Methylation_threshold=[N]: set the threshold for the methylation value. Keep only sites with methylation within the range. Default range: 50-100%.
--Methylation_threshold=[N1-N2];
--overlap=[N]: when TSS for differnt transcript IDs occurs within a range of [overlap] thay considered as duplicates and removed from calcualtions. Deafult value is 100;
--library_size=[N]: sequencing library size (to use with -LibsizeNorm to normalize to a sequencing library size);
--dont_save_aligned: do not save the generated aligned matrix;
--score: convert occupancy to RPM values and use it to generate aggregate profile;
- -chromosome=chrN: limit analysis to regions derived from specified chromosome only;
- -useCentre: Use middle of the region for alignment instead of start of the region;
- 
- Normalization settings:
- _______________________
- -AgregateProfile: generate average occupancy profile (one column text table);
-  -GeneLengthNorm: normalize aggregate profile of each region to it length (generate ametagene);
-  -LibsizeNorm: normalize to a sequencing library size;
-  -PerBaseNorm: perform per-base normalization of aggregate profile to compensate the transcripts length difference;
-
- Strand-related settings:
- ________________________
- -remove_minus_strand: do not use regions on minus strand for alignment and aggregate profile calculations;
- -ignore_strand: do not use strand information to do alignment;
- -fixed_strand=[plus|minus]: input reads belongs only to either plus or minus strand;
- -invert_strand: invert strand from annotation to opposite (use for aligning to the end of genomic regions);
- 
- OUTPUT files:
- ____________________
- -aligned="aligned.txt": path to the output file with aligned to a region start
- -average_aligned="aligned_average.txt": path to the output file with average occupancy profile
-
- LOG file:
- ____________________
- -path2log="run.log": path to a tab-delimited text file, containing number of analyzed transcripts per chromosome/list 
-  
- Additional parameters:
- ____________________
- -use_default: use default parameters and paths to the files.
- --help: display this message
- 
-==================================================================================================
+}
