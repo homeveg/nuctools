@@ -13,5 +13,11 @@ http://www.generegulation.info/index.php/nuctools
 we are currently preparing manuscript and will add here more information, usage instruction and test data set soon.
 The project is under development now.
 
+## Major changes (in porogres):
+- GZIP support implementation - all input files can be compressed and all newly created output files saved as *.gz
+- Handle gapped occupancy files: to save space and memory remove all regions/bases with 0 counts
+- implement POD documentation (with Pod::Usage)
+- command line parametrs allow long and short options (with Getopt::Long::GetOptions)
+
 ### Developers: 
 Yevhen Vainshtein and Vladimir B. Teif
