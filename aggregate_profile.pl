@@ -395,7 +395,7 @@ if ( defined $expression_file) {
 }
 
 #------------------------------------------------------------------------------
-#read file with occupanicies
+#read file with occupancies
 
 my $filesize = -s $in_file; #determine file size in bytes
 my $size_counter_step=int($filesize/100);
@@ -859,11 +859,11 @@ else { @results = @average_occ_freq_distr; }
 if ($dont_save_aligned eq "no") {
     @output_array = grep /\S/, @output_array;
 	
+	# open pipe to Gzip or open text file for writing
 	my $out_file = $out_path1;
 	$out_file =~ s/(.*)\.gz$/$1/;
-	
-	# open pipe to Gzip or open text file for writting
-	my $OUT_FHs = new IO::Compress::Gzip ($out_path1) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	my $gz_out_file = $out_file.".gz";
+	my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 
     print $OUT_FHs join("\n", @output_array),"\n";
     close ($OUT_FHs);
@@ -954,7 +954,7 @@ sub Read_column {
     return (@column);
 }
 
-#-------------------------------------------------------------
+#--------------------------------------------------------------------------
 sub clean {
 
 my $text = shift;
@@ -963,7 +963,7 @@ $text =~ s/\r//g;
 $text =~ s/\n//g;
 return $text;
 }
-
+#--------------------------------------------------------------------------
 sub max {
   my $max = $_[0];
   for ( @_[ 1..$#_ ] ) {
@@ -971,7 +971,7 @@ sub max {
     $max = $_ if $_ > $max; }
   return($max);
 }
-
+#--------------------------------------------------------------------------
 sub min {
   my $min = $_[0];
   for ( @_[ 1..$#_ ] ) {
@@ -979,11 +979,12 @@ sub min {
     $min = $_ if $_ < $min; }
   return($min);
 }
-
+#--------------------------------------------------------------------------
 # catch exceptions
 sub try(&) { eval {$_[0]->()} };
 sub catch(&) { $_[0]->($@) if $@ }
 
+#--------------------------------------------------------------------------
 # Check for problem with the options or if user requests help
 sub check_opts {
 	if ($needsHelp) {
@@ -1000,7 +1001,7 @@ sub check_opts {
 		pod2usage(
 			-exitval => 2,
 			-verbose => 1,
-			-message => "\nCannot find input OCC file: '$in_file!'\n"
+			-message => "\nCannot find input OCC file $in_file: $!'\n"
 		);
 	}
 	if ( !-e $Gene_annotation_table ) {

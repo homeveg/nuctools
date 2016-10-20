@@ -6,24 +6,39 @@ extract_chr_bed.pl - Splits a standard bed file with mapped reads into smaller b
 
 =head1 SYNOPSIS
 
-extract_chr_bed.pl -in all_data.bed.gz -out output_name_template -p [<pattern>|all] [-help] 
+perl -w extract_chr_bed.pl -in all_data.bed.gz -out output_name_template -p [<pattern>] [--help] 
 
  Required arguments:
-    -in       input BED or compressed BED.GZ file
-    -out      output BED file name template (each newly created bed file will have following name: chrN.output_name.bed.gz)
-    -p        chromosome name pattern (For example: chr1|chromosome1 e.t.c.).
-    -chrNr    set the number of chromosomes to extract (default:22 - for mouse. chromosomes X, Y and M should be extracted using corresponding pattern)
+    --input | -in           input BED or compressed BED.GZ file
+    --output | -out         output BED file name template (each newly created bed file will have following name: chrN.output_name.bed.gz)
+    --pattern | -p          chromosome name pattern (For example: chr|chromosome e.t.c.).
 
  Options:
-    -help -h  Help
+    --chromosomes | -chrNr  set the number of chromosomes to extract (default: all - extract all chromosomes)
+	--dir | -d              output folder (default: script working directory)
+    --help | -h             Help
+	
+ define column numbers in the input BED file (Nr. of the very first column is 0):
+    -chr      chromosome column Nr. (default: -chr 0)
     
  Example usage:
-    extract_chr_bed.pl --input=all_data.bed --output=output_name --pattern="chrX" --chromosomes=22
-	
+   
+  extract 22 chromosomes from whole-genome compressed bed file. Chromosome ID contains "chr":
+  
+    extract_chr_bed.pl --input=all_data.bed.gz --output=output_name --pattern="chr" --chromosomes=22
 	OR
+    extract_chr_bed.pl -in all_data.bed.gz -out output_name -p "chr" -chrNr 22
+
+  extract chromosome X only from uncompressed whole-genome BED file.
+    extract_chr_bed.pl --input=all_data.bed --output=output_name --pattern="chrX" --chromosomes=1
+	OR
+    extract_chr_bed.pl -in all_data.bed -out output_name -p "chrX" -chrNr 1
 	
-    extract_chr_bed.pl -in all_data.bed -out output_name -p "chrX" -chrNr 22
-	
+ extract all chromosomes from uncompressed whole-genome BED file.
+    extract_chr_bed.pl --input=all_data.bed --output=output_name --pattern="chr" [--chromosomes=all]
+	OR
+    extract_chr_bed.pl -in all_data.bed -out output_name -p "chr"
+
 =head1 DESCRIPTION
 
 
@@ -72,7 +87,7 @@ extract_chr_bed.pl -in all_data.bed.gz -out output_name_template -p [<pattern>|a
 =cut
 
 
-use strict 'vars';
+use strict;
 use Getopt::Long;
 use Pod::Usage;
 use IO::Uncompress::Gunzip qw($GunzipError);
@@ -83,16 +98,25 @@ use IO::Compress::Gzip qw(gzip $GzipError) ;
 
 my $infile;
 my $infile_name;
-my $outfile="";
-my $pattern;
+my $outfile;
+my $pattern="chr";
 my $needsHelp;
-my $chrNr=1;
+my $output_dir="./";
+
+# columns (default columns for *.ext.bed files)
+my $chromosome_col=0;
+
+my $chrNr="all";
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile_name,
 	'output|out=s'   => \$outfile,
+	'dir|d=s' => \$output_dir,
 	'pattern|p=s' => \$pattern,
 	'chromosomes|chrNr=s' => \$chrNr,
+	# bed file columns
+	'chromosome_col|chrC=s'   => \$chromosome_col,
+	
 	'help|h'      => \$needsHelp
 );
 
@@ -100,13 +124,14 @@ my $options_okay = &Getopt::Long::GetOptions(
 &check_opts();
 
 print STDERR "input BED file: $infile_name\n";
-print STDERR "output BED file: $outfile\n";
+print STDERR "output BED file: ",$output_dir,$outfile,"\n";
 print STDERR "chromosome ID template: $pattern\n";
 print STDERR "total number of chromosome to extract: $chrNr\n";
+print STDERR "chromosome column Nr.: $chromosome_col\n";
 
 my @chromosomes;
 my @FHs;
-my @OUT_FHs;
+my (@OUT_FHs, %OUT_FHs);
 
 if ( $infile_name =~ (/.*\.gz$/) ) {
 	$infile = IO::Uncompress::Gunzip->new( $infile_name )
@@ -135,7 +160,42 @@ my $not_zero_counter=0;
 my $string_counter=0;
 my $BUFFER_SIZE = 1024*4;
 
-if ($chrNr > 1) {
+if ($chrNr eq "all") {
+    print STDERR "extracting all chromosomes...\n";
+    
+    while ((my $n = read($infile, $buffer, $BUFFER_SIZE)) !=0) {
+        if ($n >= $BUFFER_SIZE) {
+        $buffer .= <$infile>;
+        }
+        my @lines = split(/$regex_split_newline/o, $buffer);
+        # process each line in zone file
+        foreach my $line (@lines) {
+			my @newline1=split(/\t/, $line);
+            my $chr_name=$newline1[$chromosome_col];
+			
+			#initialize file handle
+			if (not defined $OUT_FHs{$chr_name} ){
+				my $out_filename_gz= $output_dir.$chr_name.".".$outfile.".bed.gz";
+				my $out_filename= $output_dir.$chr_name.".".$outfile.".bed";
+				print STDERR "start writing data to file $out_filename_gz...\n";
+				$OUT_FHs{$chr_name} = new IO::Compress::Gzip ($out_filename_gz) or open ">$out_filename" or die "Can't open $out_filename for writing: $!\n";
+			}
+			my $OUT_FH = $OUT_FHs{$chr_name};
+			print $OUT_FH "$line\n";
+        }
+        $processed_memory_size += $n;
+        $offset += $n;
+        if(int($processed_memory_size/1048576)>= $filesize/10) {
+            print STDERR "."; $processed_memory_size=0;
+            }
+        undef @lines;
+        $buffer = "";
+    }
+    foreach my $OUTFH (%OUT_FHs) { close($OUTFH); } # close output files
+    print STDERR "done in ", time()-$timer2, " seconds\n";
+}
+
+elsif ($chrNr > 1) {
     print STDERR "extracting $chrNr chromosomes...\n";
 	
 	for (my $chrID=1; $chrID <= $chrNr; $chrID++ ) {
@@ -147,8 +207,8 @@ if ($chrNr > 1) {
 
     for (my $i=0; $i<=$#chromosomes; $i++ ) {
 		push(@OUT_FHs, "*$FHs[$i]");
-		my $out_filename_gz= "$chromosomes[$i]"."."."$outfile".".bed.gz";
-		my $out_filename= "$chromosomes[$i]"."."."$outfile".".bed";
+		my $out_filename_gz= $output_dir.$chromosomes[$i].".".$outfile.".bed.gz";
+		my $out_filename= $output_dir.$chromosomes[$i].".".$outfile.".bed";
 		$OUT_FHs[$i] = new IO::Compress::Gzip ($out_filename_gz) or open ">$out_filename" or die "Can't open $out_filename for writing: $!\n";
     }
     
@@ -207,7 +267,9 @@ else {
 
 close($infile);
 
+exit;
 
+#--------------------------------------------------------------------------
 # Check for problem with the options or if user requests help
 sub check_opts {
 	if ($needsHelp) {
@@ -225,14 +287,21 @@ sub check_opts {
 		pod2usage(
 			-exitval => 2,
 			-verbose => 1,
-			-message => "Cannot find input BED file: '$infile_name!'\n"
+			-message => "Cannot find input BED file $infile_name: $!\n"
 		);
 	}
-	if ( -e $outfile ) {
+	if ( ! $outfile ) {
 		pod2usage(
 			-exitval => 2,
 			-verbose => 1,
-			-message => "'$outfile' exists in target folder\n"
+			-message => "please specify output file name template\n"
+		);
+	}
+	if ( ! $pattern ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "please specify chromosome name template \n"
 		);
 	}
 

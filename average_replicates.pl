@@ -86,26 +86,28 @@ use Pod::Usage;
 use IO::Uncompress::Gunzip qw($GunzipError);
 use IO::Compress::Gzip qw(gzip $GzipError) ;
 
-my $usage = "$0 -input=\"path to working dir\" -output=\"path to results file\" -coordsCol=0 -occupCol=2 -printData\n";
+
+my (%occupancy,%NormFactors);
 
 my $wd;
+my $output;
+my $filename_pattern='occ.gz';
+
 my $coordsCol=0;
 my $occupCol=1;
-my %occupancy;
-my %NormFactors;
-my $output;
 my $addData;
-my $filename_pattern='delta_100_1500.txt';
 
 my $needsHelp;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$wd,
 	'output|out=s'   => \$output,
+	'pattern|p=s' => \$filename_pattern,
+
 	'coordsCol|cC=s' => \$coordsCol,
 	'occupCol|oC=s' => \$occupCol,
+	
 	'printData|d' => \$addData,
-	'pattern|p=s' => \$filename_pattern,
 	'help|h'      => \$needsHelp
 );
 
@@ -115,48 +117,39 @@ $addData = $addData ? "yes" : "no";
 &check_opts();
 
 
-
 my $tm = localtime;
-print STDERR "-----------------------\n",join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",join(":",$tm -> [2],$tm -> [1],$tm -> [0]),"\n-----------------------\n";
+print STDERR "-----------------------\n",
+join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",
+join(":",$tm -> [2],$tm -> [1],$tm -> [0]),
+"\n-----------------------\n";
 
 #check if folder exists
-if (! -d $wd) {
-    print STDERR "can't open $wd\n";
-    print STDERR $usage,"\n";
-    exit; 
-}
-else {
-    opendir(DIR, "$wd") or die $!;
-    my @all_files = readdir(DIR);
-    closedir(DIR);
-    my (@names,@files);
-    
-    foreach my $file (sort @all_files){
-      if ($file =~ m/.*\.$filename_pattern$/){
-        push(@files, $file);
-        my $filename = basename($file,  "\.$filename_pattern");
-        push(@names, $filename);
-		print STDERR "process $filename...\n";
-	#    my ($in_file, $filename, $col_coords, $col_occup, $occupancy_hashref) = @_;
-        $NormFactors{$filename} = ReadFile("$wd/$file", $filename, $coordsCol, $occupCol, \%occupancy);
-        }
-    }
-    
-    
+
+opendir(DIR, "$wd") or die $!;
+my @all_files = readdir(DIR);
+closedir(DIR);
+my (@names,@files);
+
+foreach my $file (sort @all_files){
+  if ($file =~ m/.*\.$filename_pattern$/){
+	push(@files, $file);
+	my $filename = basename($file,  "\.$filename_pattern");
+	push(@names, $filename);
+	print STDERR "process $filename...\n";
+	$NormFactors{$filename} = ReadFile("$wd/$file", $filename, $coordsCol, $occupCol, \%occupancy);
+	}
 }
 
 print STDERR "calculating StDev, Variance and average.\nResults will be saved to $output\n";
-open(OUT,">$output") or die $!;
 
 # open pipe to Gzip or open text file for writing
-	my $out_file = open(OUT,">$output") or die $!;
-	$out_file =~ s/(.*)\.gz$/$1/;
-
-my $OUT_FHs = new IO::Compress::Gzip ($output) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+my $out_file = $output;
+$out_file =~ s/(.*)\.gz$/$1/;
+my $gz_out_file = $out_file.".gz";
+my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 
 my $size = keys %occupancy;
 print $OUT_FHs join("\t","position","Mean","stdev","Rel.Error");
-#print $OUT_FHs join("\t","position","Rel.Error");
 my $header=0;
 my $total_counts = keys %occupancy;
 print STDERR "processing $total_counts entries...\n";
@@ -190,8 +183,6 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
 
     if ($addData eq "yes") { print $OUT_FHs join("\t",$position,$Mean,$stdev,$rel_err,@temp),"\n";   }
     else {print $OUT_FHs join("\t",$position,$Mean,$stdev,$rel_err),"\n";   }
-    #if ($addData eq "yes") { print $OUT_FHs join("\t",$position,$rel_err,@temp),"\n";   }
-    #else {print $OUT_FHs join("\t",$position,$rel_err),"\n";   }
     undef @temp;
 }
 print STDERR "done!\n";
@@ -316,6 +307,7 @@ sub ReadFile {
     return($mean_occup);
 }
 
+#--------------------------------------------------------------------------
 sub clean {
 
 my $text = shift;
@@ -325,6 +317,7 @@ $text =~ s/\n//g;
 return $text;
 }
 
+#--------------------------------------------------------------------------
 # Check for problem with the options or if user requests help
 sub check_opts {
 	if ($needsHelp) {

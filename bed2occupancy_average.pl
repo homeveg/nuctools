@@ -6,7 +6,7 @@ bed2occupancy_average.pl - Calculates genome-wide occupancy based on the bed fil
 
 =head1 SYNOPSIS
 
-bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --window=<running window size> --consider_strand --ConvertAllInDir -help]
+perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --window=<running window size> --consider_strand --ConvertAllInDir --help]
 
  Required arguments:
     -in       input BED file or BED.GZ file or directory containing bed or bed.gz files (if option -dir is used)
@@ -198,7 +198,7 @@ elsif ($ConvertAllInDir == 1) {
 
 exit;
 
-#--------------------------
+#--------------------------------------------------------------------------
 
 sub Bed2Occup {
     my ($infile_name, $outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag) = @_;
@@ -272,13 +272,12 @@ sub Bed2Occup {
     close($infile);
     
     print STDERR "\nsaving occupancy data.\n";
-	my $out_file_gz = $outfile;
-	if ( $outfile =~ (/.*\.gz$/) ) {
-		$outfile =~ s/(.*)\.gz$/$1/;
-	} else {
-		$out_file_gz = $out_file_gz.".gz";
-	}
-	my $OUT_FHs = new IO::Compress::Gzip ($out_file_gz) or open ">$outfile" or die "Can't open $outfile for writing: $!\n";
+
+	# open pipe to Gzip or open text file for writing
+	my $out_file = $outfile;
+	$out_file =~ s/(.*)\.gz$/$1/;
+	my $gz_out_file = $out_file.".gz";
+	my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 
     $timer2 = time();
  
@@ -341,15 +340,15 @@ sub check_opts {
 		pod2usage(
 			-exitval => 2,
 			-verbose => 1,
-			-message => "Cannot find input BED file: '$infile!'\n"
+			-message => "Cannot find input BED file $infile: $!\n"
 		);
 	}
-	#if ( -e $outfile ) {
-	#	pod2usage(
-	#		-exitval => 2,
-	#		-verbose => 1,
-	#		-message => "'$outfile' exists in target folder\n"
-	#	);
-	#}
+	if ( ( !$outfile ) and  ($ConvertAllInDir == 0) ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Please specify output occupancy file name!\n"
+		);
+	}
 
 }
