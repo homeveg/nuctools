@@ -6,34 +6,35 @@ bed2occupancy_average.pl - Calculates genome-wide occupancy based on the bed fil
 
 =head1 SYNOPSIS
 
-perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --window=<running window size> --consider_strand --ConvertAllInDir --help]
+perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--outdir=<DIR_WITH_OCC> --chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --window=<running window size> --consider_strand --ConvertAllInDir --help]
 
  Required arguments:
-    -in       input BED file or BED.GZ file or directory containing bed or bed.gz files (if option -dir is used)
-    -out      output occupancy file (OCC.GZ)
+    --input | -in        input BED file or BED.GZ file or directory containing bed or bed.gz files (if option -dir is used)
+    --output | -out      output occupancy file (OCC.GZ)
 	
  Options:
  
  define column numbers in the input BED file (Nr. of the very first column is 0):
-    -s        read start column Nr. (default: -s 1)
-    -e        read end column Nr. (default: -e 2)
-    -str      strand column Nr. (default: -str 5)
-    -chr      chromosome column Nr. (default: -chr 0)
-	-w        running window size (default: -w 100). Set to 0 to calculate frequencies for each base.
+    --start_col | -s            read start column Nr. (default: -s 1)
+    --end_col | -e              read end column Nr. (default: -e 2)
+    --strand_col | -str         strand column Nr. (default: -str 5)
+    --chromosome_col | -chr     chromosome column Nr. (default: -chr 0)
+	--window | -w               running window size (default: -w 100). Set to 0 to calculate frequencies for each base.
 
-    -dir      set flag to convert all BED files in the directory to OCC
-    -use      consider strand when calculating occupancy
-    -help -h  Help
+    --ConvertAllInDir | -dir    set flag to convert all BED files in the directory to OCC
+	--outdir | -odir            path to output folder (save to input dir if not specified)
+    --consider_strand | -use    consider strand when calculating occupancy
+    --help | -h                 Help
     
  Example usage:
     bed2occupancy_average.pl --input=chr1.name_template.bed --output=chr1.name_template.occ --window=1000 --consider_strand
-    bed2occupancy_average.pl --input=DIR_WITH_BED --window=1000 --consider_strand --ConvertAllInDir
+    bed2occupancy_average.pl --input=DIR_WITH_BED --outdir=DIR_WITH_OCC --window=1000 --consider_strand --ConvertAllInDir
     bed2occupancy_average.pl --input=chr1.name_template.bed.gz --window=0 --consider_strand
 	
 	OR
     
 	bed2occupancy_average.pl -in chr1.name_template.bed -out chr1.name_template.occ -w 1000 -use
-    bed2occupancy_average.pl -in DIR_WITH_BED -w 1000 -use -dir
+    bed2occupancy_average.pl -in DIR_WITH_BED -odir DIR_WITH_OCC -w 1000 -use -dir
     bed2occupancy_average.pl -in chr1.name_template.bed.gz -w 0 -use
 
  Note:
@@ -101,11 +102,13 @@ use IO::Dir;
 use List::Util 'sum';
 use IO::Uncompress::Gunzip qw($GunzipError);
 use IO::Compress::Gzip qw(gzip $GzipError) ;
+use File::Basename;
 
 # Variables set in response to command line arguments
 # (with defaults)
 
 my ($infile,$outfile);
+my $outdir;
 
 #flags
 my $flag;
@@ -127,6 +130,7 @@ my $region_end;
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
 	'output|out=s'   => \$outfile,
+	'outdir|odir=s'  => \$outdir,
 	
 	'consider_strand|use' => \$flag,
 	'ConvertAllInDir|dir' => \$ConvertAllInDir,
@@ -145,7 +149,6 @@ my $options_okay = &Getopt::Long::GetOptions(
 
 # set flags
 $flag = $flag ? 1 : 0;
-$ConvertAllInDir = $ConvertAllInDir ? 1 : 0;
 
 # Check to make sure options are specified correctly and files exist
 &check_opts();
@@ -155,9 +158,11 @@ $ConvertAllInDir = $ConvertAllInDir ? 1 : 0;
 print STDERR "======================================\n";
 print STDERR "input file or folder: ",$infile, "\n";
 print STDERR "output file (if applicable): ", $outfile, "\n";
+if ($outdir) { print STDERR "output folder: ", $outdir, "\n"; }
+else { $outdir = dirname($infile); }
 print STDERR "================ flags ==============\n";
-print STDERR "convert all files in the directory: ",$ConvertAllInDir, "\n";
-print STDERR "use strand information while converting to occupancy: ",$flag, "\n";
+if ($ConvertAllInDir) { print STDERR "convert all *.BED files in the $infile directory to *.OCC \n"; }
+if ($flag == 1) { print STDERR "use strand information while converting to the occupancy \n"; }
 print STDERR "running window: ",$running_window, "\n";
 print STDERR "region start: ",$region_start, "\n";
 print STDERR "region end: ",$region_end, "\n";
@@ -169,13 +174,13 @@ print STDERR "strand column: ",$strand_col, "\n";
 print STDERR "======================================\n";
 
 
-if ($ConvertAllInDir == 0) {
+if (! $ConvertAllInDir) {
 	if(!$outfile) {
         $outfile = $infile;
         $outfile =~ s/(.*)\.bed(.gz)?$/$1\.w$running_window\.occ/;
 	}
-	Bed2Occup($infile, $outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag); } 
-elsif ($ConvertAllInDir == 1) {
+	Bed2Occup($infile, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag); } 
+elsif ($ConvertAllInDir) {
     # process each *.bed file in the folder
     my (%dir, @dir_list, @text_list);
     my $start_dir = $infile;
@@ -186,12 +191,12 @@ elsif ($ConvertAllInDir == 1) {
         if ($file =~ m/.*\.bed$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed$/$1\.w$running_window\.occ/;
-            Bed2Occup($start_dir."/".$file, $start_dir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
+            Bed2Occup($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
         }
         if ($file =~ m/.*\.bed.gz$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed.gz$/$1\.w$running_window\.occ/;
-            Bed2Occup($start_dir."/".$file, $start_dir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
+            Bed2Occup($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
         }
     }
 }
