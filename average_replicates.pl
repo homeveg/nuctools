@@ -6,10 +6,10 @@ average_replicates.pl - Calculates the average occupancy profile based on severa
 
 =head1 SYNOPSIS
 
-perl -w average_replicates.pl --input=<path to working dir> --output=<path to results file> --coordsCol=0 --occupCol=1 --pattern="occ.gz" --printData [--help] 
+perl -w average_replicates.pl --dir=<path to working dir> --output=<path to results file> --coordsCol=0 --occupCol=1 --pattern="occ.gz" --printData -sum [--help] 
 
  Required arguments:
-    --input | -in      path to directory with aggregate profiles
+    --dir | -i      path to directory with aggregate profiles
     --output | -out    output table file name
 	
  Options:
@@ -18,16 +18,17 @@ perl -w average_replicates.pl --input=<path to working dir> --output=<path to re
     --occupCol | -oC   cumulative occupancy column Nr. (default: -oC 0)
 
    additional parameters
-	--pattern | -p     occupancy profile file name extension template (default: occ.gz)
+	  --pattern | -p     occupancy profile file name extension template (default: occ.gz)
     --printData | -d   print all input occupancy columns to the output file
+    --sum | -s         print column with sum of all occupancies for each nucleotide
     --help | -h        Help
     
  Example usage:
-    perl -w average_replicates.pl --input=/mnt/hdd01/myWD --output=/mnt/hdd01/myWD/occup_tab.txt --pattern="occ.gz" --coordsCol=0 --occupCol=1 --printData
+    perl -w average_replicates.pl --dir=/mnt/hdd01/myWD --output=/mnt/hdd01/myWD/occup_tab.txt --pattern="occ.gz" --coordsCol=0 --occupCol=1 --printData
 	
 	OR
 	
-    perl -w average_replicates.pl -in /mnt/hdd01/myWD -out /mnt/hdd01/myWD/occup_tab.txt -p "occ.gz" -cC 0 -oC 1 -d
+    perl -w average_replicates.pl -i /mnt/hdd01/myWD -out /mnt/hdd01/myWD/occup_tab.txt -p "occ.gz" -cC 0 -oC 1 -d
     
 =head1 DESCRIPTION
  
@@ -96,11 +97,12 @@ my $filename_pattern='occ.gz';
 my $coordsCol=0;
 my $occupCol=1;
 my $addData;
+my $printSum;
 
 my $needsHelp;
 
 my $options_okay = &Getopt::Long::GetOptions(
-	'input|in=s' => \$wd,
+	'dir|i=s' => \$wd,
 	'output|out=s'   => \$output,
 	'pattern|p=s' => \$filename_pattern,
 
@@ -108,11 +110,11 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'occupCol|oC=s' => \$occupCol,
 	
 	'printData|d' => \$addData,
+	'sum|s' => \$printSum,
+	
 	'help|h'      => \$needsHelp
 );
 
-# set flags
-$addData = $addData ? "yes" : "no";
 # Check to make sure options are specified correctly and files exist
 &check_opts();
 
@@ -140,7 +142,7 @@ foreach my $file (sort @all_files){
 	}
 }
 
-print STDERR "calculating StDev, Variance and average.\nResults will be saved to $output\n";
+print STDERR "calculating StDev, Variance, Sum and average.\nResults will be saved to $output\n";
 
 # open pipe to Gzip or open text file for writing
 my $out_file = $output;
@@ -148,42 +150,64 @@ $out_file =~ s/(.*)\.gz$/$1/;
 my $gz_out_file = $out_file.".gz";
 my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 
-my $size = keys %occupancy;
-print $OUT_FHs join("\t","position","Mean","stdev","Rel.Error");
-my $header=0;
+if ($addData) {
+	if ($printSum) { print $OUT_FHs join("\t","position","Mean","Sum","stdev","Rel.Error", @names);   }
+	else { print $OUT_FHs join("\t","position","Mean","stdev","Rel.Error", @names); }
+}
+
+my $header=0; my $old_position;
 my $total_counts = keys %occupancy;
 print STDERR "processing $total_counts entries...\n";
 my $work_progress_step = int($total_counts/10);
 my $current_progress = $work_progress_step;
 my $j=0;
 for my $position ( sort {$a<=>$b} keys %occupancy) {
+	
+	if ($position == 3000162) {
+		sleep 1;}
+	if ($position == 3000382) {
+		sleep 1;}
+
     if($current_progress == $j) {print STDERR "$current_progress from $total_counts...\n";$current_progress+=$work_progress_step;}
+	if($j==0) { $old_position= $position; }
+	if($old_position < $position-1 ) {
+		my @hkeys = ($old_position+1..$position);
+		$occupancy{@hkeys}{@names}=0
+	}
     $j++;
     my @temp; my $coord;
     for my $name ( sort keys %{ $occupancy{$position} }) {
-	if ( ($header==0) && ($addData eq "yes") ){ print $OUT_FHs "\t$name"; }
-	my $occup;
-	if ($NormFactors{$name}==0) {
-	    print STDERR "index:$j\tname:$name\tposition:$position\tnorm factor:$NormFactors{$name}\toccupancy:$occupancy{$position}{$name}\tratio:NA\n";
-	}
-	else {
-	    $occup=$occupancy{$position}{$name}/$NormFactors{$name};
-
-	}
-
-	push(@temp, $occup);
+		if ( ($header==0) && ($addData eq "yes") ){ print $OUT_FHs "\t$name"; }
+		my $occup;
+		if ($NormFactors{$name}==0) {
+			print STDERR "index:$j\tname:$name\tposition:$position\tnorm factor:$NormFactors{$name}\toccupancy:$occupancy{$position}{$name}\tratio:NA\n";
+		}
+		else {
+			$occup=$occupancy{$position}{$name}/$NormFactors{$name};
+	
+		}
+	
+		push(@temp, $occup);
     }
     if ($header == 0) { print $OUT_FHs "\n"; }
     $header=1;
     my $Mean=calcMean(@temp);
+	my $sum=sum(@temp);
     my ($stdev,$variance)=calcStdDev(@temp);
     my $rel_err;
     if ($Mean!=0) {  $rel_err=$stdev/$Mean; }
     else {$rel_err=0;}
 
-    if ($addData eq "yes") { print $OUT_FHs join("\t",$position,$Mean,$stdev,$rel_err,@temp),"\n";   }
-    else {print $OUT_FHs join("\t",$position,$Mean,$stdev,$rel_err),"\n";   }
+
+    if ( ($addData) && ($printSum) ) { print $OUT_FHs join("\t",$position,$Mean,$sum,$stdev,$rel_err,@temp),"\n"; }
+    elsif ( ($addData) && (!$printSum) ) { print $OUT_FHs join("\t",$position,$Mean,$stdev,$rel_err,@temp),"\n"; }
+    elsif ( (!$addData) && ($printSum) ) { print $OUT_FHs join("\t",$position,$Mean,$sum,$stdev,$rel_err),"\n"; }
+    else { print $OUT_FHs join("\t",$position,$Mean,$stdev,$rel_err),"\n";   }
+	
+	#print STDERR join(" | ",$position,$Mean,$sum,$stdev,$rel_err,@temp),"\n";
+	
     undef @temp;
+	$old_position = $position;
 }
 print STDERR "done!\n";
 $tm = localtime;
@@ -194,25 +218,6 @@ exit();
 
 
 ###################################
-
-
-#------------------ Read specified column --------------------
-sub Read_column {
-    my ($column_number, $array_ref) = @_;
-    my @array = @{$array_ref};
-
-    my (@column, @string);
-    # read column of interest to the memory
-    for(my $j=0; $j <= $#array ; $j++ )
-     {
-	    push (@string, split("\t",$array[$j]));
-	    if ($column_number > $#string) {push (@column,undef);}
-	    else {push (@column, $string[$column_number]);}
-	    undef @string;
-     }
-    print STDERR join("\n", $column[0], $column[1], $column[2]), "\n";
-    return (@column);
-}
 
 #-------------------------------------------------------------
 sub calcMean {
@@ -226,6 +231,7 @@ sub calcStdDev {
 	my $sum = sum(@array);
 	$_ *= $_ for @array;
     my $sumOfSquares = sum(@array);
+	if( (!$n) or ($n<=1) ) { return (0,0); }
     my $variance = calcVariance( $sumOfSquares, $sum, $n );
     my $stddev = sqrt( $variance );
     return ($stddev,$variance);
@@ -263,7 +269,7 @@ sub ReadFile {
     my $sz_buffer = 0;
     my $timer2 = time();
     # counter for the markers we see
-    my $marker_count = 0;
+    my $counter = 0;
     
     my $regex_split_newline='\n';
     
@@ -279,16 +285,19 @@ sub ReadFile {
         my @lines = split(/$regex_split_newline/o, $buffer);
         # process each line in zone file
         foreach my $line (@lines) {
-	    if ($line =~ /^\D*\t.*/) { next; }
-	    my @string;
-	    push (@string, split("\t",$line));
-            my $pos = $string[$col_coords];
-	    $pos+=0;
-            my $occup = $string[$col_occup];
-	    $occup+=0;
-	    $occupancy_hashref->{$pos}->{$filename} =  $occup;
-	    push(@all_occups,$occup);
-	    undef @string;
+			if ($line =~ /^\D*\t.*/) { next; }
+			my @string;
+			push (@string, split("\t",$line));
+			my $pos = $string[$col_coords];
+			$pos+=0;
+			if($pos == 3000159) {
+				sleep 1; }
+			my $occup = $string[$col_occup];
+			$occup+=0;
+			$occupancy_hashref->{$pos}->{$filename} =  $occup;
+			push(@all_occups,$occup);
+			undef @string;
+			$counter++;
         }
         $processed_memory_size += $n;
         $offset += $n;
@@ -302,6 +311,8 @@ sub ReadFile {
     my $duration = time()-$timer2;
     
     print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
+	  print STDERR "$counter positions added\n";
+
     close($inFH) or die $!;
     my $mean_occup=calcMean(@all_occups);
     return($mean_occup);

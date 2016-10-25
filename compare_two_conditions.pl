@@ -1,28 +1,102 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 
-###==================================================================================================
-### Takes as input occupancy files for two conditions (which have been previously generated from 
-### several replicates using average_replicates.pl), and produces two files with regions of size 
-### windowSize, where the difference between the signal in condition 2 and condition 1 is 
-### correspondingly larger or smaller than threshold1 and threshold 2.
-###
-### (c) Yevhen Vainshtein, Vladimir Teif
-### 
-### compare_two_conditions.pl 
-### NucTools 1.0
-###==================================================================================================
-###
-### last changed: 17 July 2016
-###==================================================================================================
+=head1 NAME
 
-use strict;
+bed2occupancy_average.pl - identify regions with highest variance between control and sample condition (based ion replicates) 
+
+=head1 SYNOPSIS
+
+perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt> --output1=<more_than1.txt> --output2=<less_than1.txt> --chromosome="chr1" [--windowSize=100 --threshold1=0.8 --threshold2=0.5 --Col_signal=1 --Col_coord=0 --verbose --help]
+
+ Required arguments:
+    --input1 | -i1        input BED file or BED.GZ extended file (if option -dir is used)
+    --input2 | -i2        input BED file or BED.GZ extended file (if option -dir is used)
+    --output1 | -o1       output high/low varience regions file (OCC.GZ)
+    --output2 | -o2       output high/low varience regions file (OCC.GZ)
+	
+ Options:
+    define column numbers in the input occupancy files (Nr. of the very first column is 0):
+    --Col_signal | -cs          occupancy column Nr. (default: 1)
+	--Col_coord | -cc           coordinate column Nr. (default: 0)
+	
+   additional parameters
+    --chromosome | -c           chromosome ID
+    --windowSize | -w           running window size (default: 100)
+    --threshold1 | -t1          upper threshold (default: 0.8)
+    --threshold2 | -t2          lower threshold (default: 0.5)
+	
+    --verbose | -v              consider strand when calculating occupancy
+    --help | -h                 Help
+    
+ Example usage:
+    compare_two_conditions.pl --input1=healthy.occ --input2=patients.occ --output1=more_than0.8.txt --output2=less_than0.5.txt --window=1000 --threshold1=0.5 --threshold2=0.8
+	
+	OR
+    
+    compare_two_conditions.pl -i1 healthy.occ -i2 patients.occ -o1 more_than0.8.txt -o2 less_than0.5.txt -w 1000 -t1 0.5 -t2 0.8
+
+ Note:
+    default column numbers refer to a standard bed file format:
+	
+	chromosome | read start | read end | read ID | score | strand
+	=============================================================
+	
+=head1 DESCRIPTION
+
+=head2 NucTools 1.0 package.
+
+ NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
+
+=head2 compare_two_conditions.pl
+
+ compare_two_conditions.pl takes as input occupancy files for two conditions (which have been previously generated from several replicates using average_replicates.pl), and produces two files with regions of size windowSize, where the difference between the signal in condition 2 and condition 1 is correspondingly larger or smaller than threshold1 and threshold 2.
+
+=head1 AUTHORS
+
+=over
+
+=item 
+ Yevhen Vainshtein <yevhen.vainshtein@igb.fraunhofer.de>
+ 
+=item 
+ Vladimir Teif
+ 
+=back
+
+=head2 Last modified
+
+ 14 October 2016
+ 
+=head1 LICENSE
+
+ Copyright (C) 2012-2016 Yevhen Vainshtein, Vladimir Teif
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+=cut
+
+
+use strict 'vars';
+use Getopt::Long;
+use Pod::Usage;
+use IO::Uncompress::Gunzip qw($GunzipError);
+use IO::Compress::Gzip qw(gzip $GzipError) ;
 use Time::localtime;
 use Time::Local;
 use File::Basename;
 use List::Util qw(sum);
-
-
-my $usage = "$0 -input1=healthy.txt -input2=patients.txt -output1=more_than1.txt -output2=less_than1.txt -chromosome=chr1 -windowSize=100 -threshold1=0.8 -threshold2=0.5 -Col_signal=1 -Col_coord=0\n";
 
 my ($input1,$input2);
 my $Col_signal=1;
@@ -30,29 +104,30 @@ my $Col_coord=0;
 my $threshold1=0.8;
 my $threshold2=0.5;
 my ($output1,$output2);
-my $chromosome="chr1";
+my $chromosome;
 my $windowSize=100;
-my $verbose = "no";
+my $verbose;
+my $needsHelp;
 
-if (@ARGV != 0) {
-    foreach my $comand_line_flag (@ARGV) {
-	if ($comand_line_flag =~ /-input1=(.*)/i) { $input1 = $1; }
-	if ($comand_line_flag =~ /-input2=(.*)/i) { $input2 = $1; }
-	if ($comand_line_flag =~ /-output1=(.*)/i) { $output1 = $1; }
-	if ($comand_line_flag =~ /-output2=(.*)/i) { $output2 = $1; }
-	if ($comand_line_flag =~ /-Col_signal=(.*)/i) { $Col_signal = $1; }
-	if ($comand_line_flag =~ /-Col_coord=(.*)/i) { $Col_coord = $1; }
-	if ($comand_line_flag =~ /-threshold1=(.*)/i) { $threshold1 = $1; }
-	if ($comand_line_flag =~ /-threshold2=(.*)/i) { $threshold2 = $1; }
-	if ($comand_line_flag =~ /-chromosome=(.*)/i) { $chromosome = $1; }
-	if ($comand_line_flag =~ /-windowSize=(.*)/i) { $windowSize = $1; }
-	if ($comand_line_flag =~ /--verbose/i) { $verbose = "yes"; }
-    }
-}
-else {
-    print STDERR $usage,"\n";
-    exit;
-}
+my $options_okay = &Getopt::Long::GetOptions(
+	'input1|i1=s' => \$input1,
+	'input2|i2=s' => \$input2,
+	'output1|o1=s'   => \$output1,
+	'output2|o2=s'   => \$output2,
+	
+	'chromosome|c=s'  => \$chromosome,
+	'windowSize|w=s' => \$windowSize,
+	
+	'threshold1|t1' => \$threshold1,
+	'threshold2|t2' => \$threshold2,
+	
+	'Col_signal|s=s' => \$Col_signal,
+	'Col_coord|c=s' => \$Col_coord,
+	'verbose|v=s'   => \$verbose,
+	
+	'help|h'      => \$needsHelp
+);
+
 
 print STDERR "======================================\n";
 print STDERR "input file 1:",$input1, "\n";
@@ -83,8 +158,14 @@ print STDERR "Reading $input1 file of $filesize MBs. Please wait...\n";
 #@coord_occ_array=();
 my $BUFFER_SIZE = 1024*4;
 
-# open original file
-open(INPUT, $input1) or die "error: $input1 cannot be opened\n";
+# open file 1
+my $infile;
+if ( $input1 =~ (/.*\.gz$/) ) {
+	$infile = IO::Uncompress::Gunzip->new( $input1 )
+	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+}
+else { open( $infile, "<", $input1 ) or die "error: $input1 cannot be opened:$!"; }
+
 my $buffer = "";
 my $sz_buffer = 0;
 my $timer2 = time();
@@ -96,9 +177,9 @@ my $offset=0;
 
 my (@occup1,@pos1);
 
-while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
+while ((my $n = read($infile, $buffer, $BUFFER_SIZE)) !=0) {
     if ($n >= $BUFFER_SIZE) {
-    $buffer .= <INPUT>;
+    $buffer .= <$infile>;
     }
     my @lines = split(/$regex_split_newline/o, $buffer);
     # process each line in zone file
@@ -112,7 +193,7 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
     $processed_memory_size += $n;
     $offset += $n;
     if(int($processed_memory_size/1048576)>= $filesize/10) {
-        print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
+        print STDERR "."; $processed_memory_size=0;
         }
     undef @lines;
     $buffer = "";
@@ -121,7 +202,7 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
 my $duration = time()-$timer2;
 
 print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n\n";
-close(INPUT) or die $!;
+close($infile) or die $!;
 
 
 
@@ -131,8 +212,13 @@ $filesize = int($filesize/1048576); # filesize in megabytes
 
 print STDERR "Reading $input2 file of $filesize MBs. Please wait...\n";
 
-# open original file
-open(INPUT, $input2) or die "error: $input2 cannot be opened\n";
+# open file 2
+if ( $input2 =~ (/.*\.gz$/) ) {
+	$infile = IO::Uncompress::Gunzip->new( $input2 )
+	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+}
+else { open( $infile, "<", $input2 ) or die "error: $input2 cannot be opened:$!"; }
+
 $buffer = "";
 $sz_buffer = 0;
 $timer2 = time();
@@ -142,9 +228,9 @@ $offset=0;
 
 my (@occup2,@pos2);
 
-while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
+while ((my $n = read($infile, $buffer, $BUFFER_SIZE)) !=0) {
     if ($n >= $BUFFER_SIZE) {
-    $buffer .= <INPUT>;
+    $buffer .= <$infile>;
     }
     my @lines = split(/$regex_split_newline/o, $buffer);
     # process each line in zone file
@@ -158,7 +244,7 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
     $processed_memory_size += $n;
     $offset += $n;
     if(int($processed_memory_size/1048576)>= $filesize/10) {
-        print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
+        print STDERR "."; $processed_memory_size=0;
         }
     undef @lines;
     $buffer = "";
@@ -167,10 +253,21 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
 $duration = time()-$timer2;
 
 print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
-close(INPUT) or die $!;
+close($infile) or die $!;
 
-open(OUT1,">$output1") or die $!;
-open(OUT2,">$output2") or die $!;
+# open pipe to Gzip or open text file for writing
+my ($out_file,$gz_out_file, $OUT1_FHs, $OUT2_FHs);
+$out_file = $output1;
+$out_file =~ s/(.*)\.gz$/$1/;
+$gz_out_file = $out_file.".gz";
+$OUT1_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+
+$out_file = $output2;
+$out_file =~ s/(.*)\.gz$/$1/;
+$gz_out_file = $out_file.".gz";
+$OUT2_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+
+
 print STDERR "\n======================\nstart filtering...";
 my $above_counter=0;
 my $below_counter=0;
@@ -186,12 +283,12 @@ for (my $i=1; $i<=$#pos1; $i++) {
     my $end_region = $pos1[$i];
     my $above_below_flag="between";
     if ($norm_difference > $threshold1) {
-        print OUT1 join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1[$i], $occup2[$i]),"\n";
+        print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1[$i], $occup2[$i]),"\n";
 	$above_counter++;
 	$above_below_flag="above";
     }
     if ($norm_difference < $threshold2) {
-        print OUT2 join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1[$i], $occup2[$i]),"\n";
+        print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1[$i], $occup2[$i]),"\n";
 	$below_counter++;
 	$above_below_flag="below";
     }
@@ -212,6 +309,51 @@ print STDERR "======================\n",
 	     "$between from $#pos1 entries are between 2 thresholds\n",
 	     "$above_counter from $#pos1 entries saved to $output1\n",
 	     "$below_counter from $#pos1 entries saved to $output2\n======================\n";
-close(OUT1) or die $!;
-close(OUT2) or die $!;
+close($OUT1_FHs) or die $!;
+close($OUT2_FHs) or die $!;
 exit;
+
+
+#--------------------------------------------------------------------------
+# Check for problem with the options or if user requests help
+sub check_opts {
+	if ($needsHelp) {
+		pod2usage( -verbose => 2 );
+	}
+	if ( !$options_okay ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Error specifying options."
+		);
+	}
+	if ( ! -f $input2 ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Cannot find input file $input2: $!\n"
+		);
+	}
+	if ( ! -e $input1 ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Cannot find input file $input1: $!\n"
+		);
+	}
+	if ( !$output1 )  {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Please specify output regions file name!\n"
+		);
+	}
+	if ( !$output2 )  {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Please specify output regions file name!\n"
+		);
+	}
+
+}
