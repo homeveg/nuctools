@@ -7,7 +7,8 @@ Recent advancements in high-throughput sequencing methods create a vast amount o
 ## Additional information
 
 Additional information, publications references and short description of each script from the toolbox can be found here:
-http://www.generegulation.info/index.php/nuctools
+http://www.generegulation.info/index.php/nuctools (external link)
+https://homeveg.github.io/nuctools/ (GitHub pages)
 
 **PLEASE NOTE**:
 *we are currently preparing manuscript and will add here more information, usage instruction and test data set soon.
