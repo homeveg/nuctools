@@ -22,7 +22,7 @@ There are several changes has been planned and partially implemented:
 - extend NucTools documentation and usage examples with Perl POD package
 - unify pipeline scripts input parameters using Perl GETOPT package
 
-### future-possible-modifications
+### Future possible modifications
 
 - BAM files support
 - parallel processing (beautiful codes snippets for implementation of parallel processing of BAM files with Perl one can find here: https://genomebytes.wordpress.com/2013/07/24/multi-thread-access-of-bam-files-using-perl-and-samtools/ )
