@@ -32,7 +32,7 @@ in the "test" directory. More details are stated in the INSTRUCTION section.
 2. Installing NucTools:
         the NucTools package does not require installation. It is a collection of individual Perl scripts which can be executed individually.
 
-3. Generate a genome annotation table using providing R script:
+3. Generate a genome annotation table using provided R script:
         $ Rscript misc/LoadAnnotation.BioMart.R
 
 4. Prepare BED files from BAM files with external application (optionally) 
@@ -42,11 +42,11 @@ in the "test" directory. More details are stated in the INSTRUCTION section.
         $ 	bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz > /Path_to_folder_with/BED/test_sorted.bed.gz
 
 5. Running NucTools:
-    1. Extend single-end reads to the average DNA fragment size (100)
-        $ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz
-    2. Extract ndividual chromosomes from whole genome BED
+    1. Extend single-end reads to the average DNA fragment size
+        $ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz -fL 147
+    2. Extract individual chromosomes from whole genome BED
         $ extract_chr_bed.pl -in test.ext.bed.gz -out test -d /Path_to_folder_with/BED/ -p chr 
-    3. Convert all BED files to occupancy OCC files avereging nucleosomes occupancy values over the window of size 10
+    3. Convert all BED files to occupancy OCC files averaging nucleosomes occupancy values over the window of size 10
         $ bed2occupancy_average.pl -in /Path_to_folder_with/BED/ -odir /Path_to_folder_with/OCC -dir -use -w 10
     4. Calculate aggregate profiles and aligned occupancy matrices for each chromosome individually 
         $ aggregate_profile.pl -reg genome_annotation.tab -idC 0 -chrC 4 --strC 7 -sC 8 -eC 9 -pbN -lsN -lS <SeqLibSize> -chr 1 -al /Path_to_folder_with/OCC/chr1.test.occ_matrix -av /Path_to_folder_with/OCC/chr1.test.aggregate -in /Path_to_folder_with/OCC/chr1.test.w10.occ.gz -upD 1000 -downD 1000
