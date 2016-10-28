@@ -78,7 +78,7 @@ NucTools utilize whole genome [BED](https://genome.ucsc.edu/FAQ/FAQformat#format
 -------------------------------------------------------------------
 ### Running NucTools
 
-One can devide the NucTools pipeline to 3 major steps: (1) prepare input OCC files (2) calculate aggregate profiles and alligned occupancy matrixes (3) followup analysis and results visualization. 
+One can divide the NucTools pipeline to 3 major steps: (1) prepare input OCC files (2) calculate aggregate profiles and alligned occupancy matrixes (3) followup analysis and results visualization. 
 For the moment we don't have a wrapper to run all 3 steps automatically so, each step should be executed separately and, in turn, consists of several intermediate steps.
 
 We will provide a testing BAM file, command line bash file, and example output in ./test. Below is a set of commands that runs "test.bam" through NucTools pipeline:
