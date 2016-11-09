@@ -1,30 +1,118 @@
-#!/usr/local/bin/perl
-###
-###==================================================================================================
-### Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length
-### (c) Yevhen Vainshtein, Vladimir Teif
-### 
-### nucleosome_repeat_length.pl
-### NucTools 1.0
-###==================================================================================================
-###
-### last changed: 17 July 2016
-###==================================================================================================
+#!/usr/bin/perl
+
+=head1 NAME
+
+nucleosome_repeat_length.pl -  Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length
+
+=head1 SYNOPSIS
+
+perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
+ [--delta=<N> --apply_filter --filtering_threshold=<N> --pile=<N> --fix_pile_size ] \
+ [--chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --help]
 
 
-use strict "vars";
-use Config;
+ Required arguments:
+    --input | -in      path to input BED or BED.GZ file
+    --output | -out    output table file name
+	
+ Options:
+ 
+  define column numbers in the input BED file (Nr. of the very first column is 0):
+    --start_col | -sC            read start column Nr. (default: -s 1)
+    --end_col | -eC              read end column Nr. (default: -e 2)
+    --strand_col | -str         strand column Nr. (default: -str 5)
+    --chromosome_col | -chrC     chromosome column Nr. (default: -chr 0)
+
+   parameters with default values:
+    --delta | -d                  maximum distance from start of the reference nucleosome to the last in calculations (default: 400)
+    --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
+    --pile | -p                   define minimal pile size (default: 1)
+   
+   flags:
+    --apply_filter | -f           apply --filtering_threshold to the data
+    --fix_pile_size | -s          only consider nucleosomes in piles of the defined size (requires -p parameter)
+
+	--help | h                 Help
+	
+ Example usage:
+ 
+    perl -w nucleosome_repeat_length.pl --input=in.bed.gz --output=filtered.txt.gz --delta=1000 	
+	
+	OR
+	
+    perl -w extend_SE_reads.pl -in in.bed.gz -out out.bed.gz -d 100 	
+    
+=head1 DESCRIPTION
+ 
+=head2 NucTools 1.0 package.
+
+ NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
+
+=head2 nucleosome_repeat_length.pl
+
+ nucleosome_repeat_length.pl -  Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length
+
+=head1 AUTHORS
+
+=over
+
+=item 
+ Yevhen Vainshtein <yevhen.vainshtein@igb.fraunhofer.de>
+ 
+=item 
+ Vladimir Teif
+ 
+=back
+
+=head2 Last modified
+
+ 18 October 2016
+ 
+=head1 LICENSE
+
+ Copyright (C) 2012-2016 Yevhen Vainshtein, Vladimir Teif
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+=cut
+
+use strict 'vars';
+use Getopt::Long;
+use Pod::Usage;
+use IO::Uncompress::Gunzip qw($GunzipError);
+use IO::Compress::Gzip qw(gzip $GzipError) ;
+
 use Time::localtime;
 use Time::Local;
 
 
-# Default parametrs
+# Default parameters
 my $delta = 400;
 my $pile = 1;
+my $piles_filtering_threshold=20;
 
 my $in_file; 
-my $out_path1; 
-#  Time count Initialisation
+my $out_path1;
+
+# default BED file columns
+my $start_col=1;
+my $end_col=2;
+my $strand_col=5;
+my $chromosome_col=0;
+
+#  Time count Initialization
 my $timer1=time();
 my $tm = localtime;
 my $start_sec = $tm -> [0];
@@ -32,34 +120,35 @@ my $start_min = $tm ->[1];
 my $start_hour = $tm ->[2];
 my $start_time = time();
 
-$in_file = "chr1.bed";
-$out_path1 = "nuc-nuc_chr1.txt";
-my $apply_filter_flag=0;
-my $piles_filtering_threshold=20;
-my $fix_pile_size = "no";
+# initialize flags
+my $apply_filter_flag;
+my $fix_pile_size;
 
-# perl -w new_nuc-nuc_distance_filter.pl -input="chr9.bed" -output="nuc-nuc_ch9_filtered.txt" -delta=3000 -filtering_threshold=20 -apply_filter
+my $needsHelp;
 
 #read arguments from command line
-if (@ARGV != 0) {
-    foreach my $comand_line_flag (@ARGV) {
-	if ($comand_line_flag =~ /-input=(.*)/i) { $in_file = $1; }
-	if ($comand_line_flag =~ /-output=(.*)/i) { $out_path1 = $1; }
-        if ($comand_line_flag =~ /-delta=(.*)/i) { $delta = $1; }
-	if ($comand_line_flag =~ /-pile=(.*)/i) { $pile = $1; }
-	if ($comand_line_flag =~ /-fix_pile_size/i) { $fix_pile_size = "yes"; }
-        if ($comand_line_flag =~ /-use_default/i) { print STDERR "using default values: \n"; }
-        if ($comand_line_flag =~ /-apply_filter/i) { $apply_filter_flag=1; }
-        if ($comand_line_flag =~ /-filtering_threshold=(.*)/i) { $piles_filtering_threshold = $1; }
+my $options_okay = &Getopt::Long::GetOptions(
+	'input|in=s' => \$in_file,
+	'output|out=s'   => \$out_path1,
 	
+	'delta|d=i' => \$delta,
+	'pile|p=i'   => \$pile,
+	'filtering_threshold|t=i'   => \$piles_filtering_threshold,
 	
-	#if ($comand_line_flag =~ /-help/i) {  print STDERR "help\n";	}
-    }
-}
-else { warn "please provide command line options!\n:",
-      "perl -w nuc-nuc_distance.pl -input -output -delta "; exit;}
+	'start_col|sC=s' => \$start_col,
+	'end_col|eC=s'   => \$end_col,
+	'strand_col|str=s' => \$strand_col,
+	'chromosome_col|chr=s'   => \$chromosome_col,
 
-# Display input parametrs
+	'fix_pile_size|s' => \$fix_pile_size,
+	'apply_filter|f'   => \$apply_filter_flag,
+	'help|h'      => \$needsHelp
+);
+
+# Check to make sure options are specified correctly and files exist
+&check_opts();
+
+# Display input parameters
 print STDERR "======================================\n";
 print STDERR "Started:\t$start_hour:$start_min:$start_sec\n";
 print STDERR "======================================\n";
@@ -67,11 +156,9 @@ print STDERR "in file:",$in_file, "\n";
 print STDERR "out file:",$out_path1, "\n";
 print STDERR "delta: ",$delta, "\n";
 print STDERR "pile: $pile\n";
-print STDERR "select only fix pile size: $fix_pile_size\n";
-print STDERR "apply_filter_flag: $apply_filter_flag\n";
 print STDERR "filtering threshold: $piles_filtering_threshold\n";
-#print STDERR "reads threshold: ",$reads_threshold, "\n";
-#print STDERR "using fast files load (nor for files bigger than 2Gb: $use_mmap_perlIO\n";
+if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"; }
+if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
 print STDERR "======================================\n";
 
 
@@ -85,8 +172,14 @@ print STDERR "Step 1 (",time()-$timer1," sec.): reading $in_file file...\n";
 @occ_array=();
 my $BUFFER_SIZE = 1024*4;
 
-# open original file
-open(INPUT, $in_file) or die "error: $in_file cannot be opened\n";
+# open occupancy file
+my $inFH;
+if ( $in_file =~ (/.*\.gz$/) ) {
+	$inFH = IO::Uncompress::Gunzip->new( $in_file )
+	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+}
+else { open( $inFH, "<", $in_file ) or die "error: $in_file cannot be opened:$!"; }
+
 my $buffer = "";
 my $sz_buffer = 0;
 my $timer2 = time();
@@ -110,16 +203,16 @@ my $chr_start;  #first read start
 my $chr_end;    # last read end
 
 my (@starts, @ends, @length, %starts_hash, @indexis);
-while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
+while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     if ($n >= $BUFFER_SIZE) {
-    $buffer .= <INPUT>;
+    $buffer .= <$inFH>;
     }
     my @lines = split(/$regex_split_newline/o, $buffer);
     # process each line in zone file
     foreach my $line (@lines) {
 	chomp($line);
         my @newline1=split(/\t/, $line);
-        my $start_nuc=$newline1[1];
+        my $start_nuc=$newline1[$start_col];
         push(@starts, $start_nuc);
 
         $string_counter++;
@@ -128,13 +221,13 @@ while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
 $processed_memory_size += $n;
 $offset += $n;
 if(int($processed_memory_size/1048576)>= $filesize/10) {
-    print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
+    print STDERR "."; $processed_memory_size=0;
     }
 undef @lines;
 $buffer = "";
 }
 
-close(INPUT) or die $!; 
+close($inFH) or die $!; 
 print STDERR $filesize, " Mbs processed in ", time()-$timer2, " seconds.\n$not_zero_counter non zero counts, ",$#starts+1," lines\n\n";
 
 # remove empty strings
@@ -150,15 +243,15 @@ my @sorted = sort {$a <=> $b} @starts;
 print STDERR "done in ", time()-$timer2, " seconds.\n";
 $timer2= time();
 
-# remove nucleosomoes without repeat ($pile>1)
+# remove nucleosomes without repeat ($pile>1)
 my @temp;
 if ($pile>1) {
     $timer2= time();
-    if($fix_pile_size eq "yes") {
-	print STDERR "- select only pile=3...";
+    if($fix_pile_size) {
+	print STDERR "- select only pile=$pile...";
     }
     else {
-	print STDERR "- removing un-piled nucleosomes...";
+	print STDERR "- removing nucleosomes not in piles...";
     }
     
     my @only_piled;
@@ -175,7 +268,7 @@ if ($pile>1) {
 	    $pile_counter=0;
 	}
 	elsif (($sorted[$i-1] != $sorted[$i]) && ($#temp>0)) {
-	    if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
+	    if(($fix_pile_size) && ($#temp != $pile)) {
 		undef @temp;
 	    }
 	    else {
@@ -192,10 +285,10 @@ if ($pile>1) {
 }
 
 #apply local pile filter: at one position should be less than threshold nucleosom starts
-if($fix_pile_size eq "no") {
+if(!$fix_pile_size) {
     $timer2= time();
     undef @temp;
-    if ($apply_filter_flag==1) {
+    if ($apply_filter_flag) {
 	$timer2= time();
 	print STDERR "- apply local pile filter: removing reads in the pile above $piles_filtering_threshold ...";
 	my @piled_under_threshold;
@@ -208,14 +301,14 @@ if($fix_pile_size eq "no") {
 		$pile_counter++;
 	    }
 	    elsif ($pile_counter >= $piles_filtering_threshold) {
-		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
-		undef @temp;
-		$pile_counter=0;
+			push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
+			undef @temp;
+			$pile_counter=0;
 	    }
 	    elsif (($sorted[$i-1] != $sorted[$i]) && ($#temp>0)) {
-		push @piled_under_threshold, @temp;
-		undef @temp;
-		$pile_counter=0;
+			push @piled_under_threshold, @temp;
+			undef @temp;
+			$pile_counter=0;
 	    }
     
 	}
@@ -236,7 +329,7 @@ my $progress_counter=$counter_step;
 for (my $i=0; $i<$#sorted; $i++) {
     #read read start
     my $nuc=$sorted[$i];
-    # calcualte maximum index shift
+    # calculate maximum index shift
     my $max_delta_index=5*$delta;
     # check if incremented index exceeds reads array length and correct it if necessary
     if ($i+$max_delta_index>=$#sorted) { $max_delta_index = $#sorted-$i; }
@@ -250,8 +343,8 @@ for (my $i=0; $i<$#sorted; $i++) {
     #increment counter to display work progress
     if ( $progress_counter == $i ) {
 	if ($first_itteration==0) { my $approx_duration = (time()-$timer2)*100/60; print STDERR "work will be finished in approximately $approx_duration minutes\n"; $first_itteration=1; }
-	#print STDERR ".";
-	print STDERR join (" ", @output_array[0..5],"..",@output_array[145..150]), "\n";
+	print STDERR ".";
+	#print STDERR join (" ", @output_array[0..5],"..",@output_array[145..150]), "\n";
 	$progress_counter+=$counter_step;
     }
 }
@@ -259,10 +352,14 @@ print STDERR "\ndone\n";
 
 @output_array = grep /\S/, @output_array;
 
-print STDERR "- saving resuts to $out_path1...";
-open (OCCUP_File, ">$out_path1") or die "can't open file $out_path1 for writting: $!";
-print OCCUP_File join("\n", @output_array);
-close (OCCUP_File);
+print STDERR "- saving results to $out_path1...";
+# open pipe to Gzip or open text file for writing
+my $out_file = $out_path1;
+$out_file =~ s/(.*)\.gz$/$1/;
+my $gz_out_file = $out_file.".gz";
+my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+print $OUT_FHs join("\n", @output_array);
+close ($OUT_FHs);
 print STDERR "done\n";
 
 $tm = localtime;
@@ -313,4 +410,34 @@ sub median {
 sub even_odd {
 	if (int($_[0]/2) == $_[0]/2) { return "EVEN"; }
 	else {return "ODD";}
+}
+
+#--------------------------------------------------------------------------
+# Check for problem with the options or if user requests help
+sub check_opts {
+	if ($needsHelp) {
+		pod2usage( -verbose => 2 );
+	}
+	if ( !$options_okay ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Error specifying options."
+		);
+	}
+	if ( ! -e $in_file ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Cannot find input BED file $in_file: $!\n"
+		);
+	}
+	if (!$out_path1 ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "please specify output file name\n"
+		);
+	}
+
 }

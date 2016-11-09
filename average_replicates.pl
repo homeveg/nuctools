@@ -6,7 +6,7 @@ average_replicates.pl - Calculates the average occupancy profile based on severa
 
 =head1 SYNOPSIS
 
-perl -w average_replicates.pl --dir=<path to working dir> --output=<path to results file> --coordsCol=0 --occupCol=1 --pattern="occ.gz" --printData -sum [--help] 
+perl -w average_replicates.pl --dir=<path to working dir> --output=<path to results file> --coordsCol=0 --occupCol=1 --pattern="occ.gz" --printData --sum [--help] 
 
  Required arguments:
     --dir | -i      path to directory with aggregate profiles
@@ -137,9 +137,14 @@ foreach my $file (sort @all_files){
 	push(@files, $file);
 	my $filename = basename($file,  "\.$filename_pattern");
 	push(@names, $filename);
-	print STDERR "process $filename...\n";
-	$NormFactors{$filename} = ReadFile("$wd/$file", $filename, $coordsCol, $occupCol, \%occupancy);
 	}
+}
+
+for (my $i=0; $i<=$#files; $i++) {
+	my $filename = $names[$i];
+	my $file = $files[$i];
+	$NormFactors{$filename} = ReadFile("$wd/$file", $filename, $coordsCol, $occupCol, \%occupancy, @names);
+
 }
 
 print STDERR "calculating StDev, Variance, Sum and average.\nResults will be saved to $output\n";
@@ -162,13 +167,7 @@ my $work_progress_step = int($total_counts/10);
 my $current_progress = $work_progress_step;
 my $j=0;
 for my $position ( sort {$a<=>$b} keys %occupancy) {
-	
-	if ($position == 3000162) {
-		sleep 1;}
-	if ($position == 3000382) {
-		sleep 1;}
-
-    if($current_progress == $j) {print STDERR "$current_progress from $total_counts...\n";$current_progress+=$work_progress_step;}
+	if($current_progress == $j) {print STDERR "$current_progress from $total_counts...\n";$current_progress+=$work_progress_step;}
 	if($j==0) { $old_position= $position; }
 	if($old_position < $position-1 ) {
 		my @hkeys = ($old_position+1..$position);
@@ -177,22 +176,19 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
     $j++;
     my @temp; my $coord;
     for my $name ( sort keys %{ $occupancy{$position} }) {
-		if ( ($header==0) && ($addData eq "yes") ){ print $OUT_FHs "\t$name"; }
-		my $occup;
-		if ($NormFactors{$name}==0) {
-			print STDERR "index:$j\tname:$name\tposition:$position\tnorm factor:$NormFactors{$name}\toccupancy:$occupancy{$position}{$name}\tratio:NA\n";
-		}
-		else {
-			$occup=$occupancy{$position}{$name}/$NormFactors{$name};
-	
-		}
-	
-		push(@temp, $occup);
+			if ( ($header==0) && ($addData eq "yes") ){ print $OUT_FHs "\t$name"; }
+			my $occup;
+			if ($NormFactors{$name}==0) {
+				print STDERR "index:$j\tname:$name\tposition:$position\tnorm factor:$NormFactors{$name}\toccupancy:$occupancy{$position}{$name}\tratio:NA\n";
+			}
+			else { 	$occup=$occupancy{$position}{$name}/$NormFactors{$name};	}
+		
+			push(@temp, $occup);
     }
     if ($header == 0) { print $OUT_FHs "\n"; }
     $header=1;
     my $Mean=calcMean(@temp);
-	my $sum=sum(@temp);
+		my $sum=sum(@temp);
     my ($stdev,$variance)=calcStdDev(@temp);
     my $rel_err;
     if ($Mean!=0) {  $rel_err=$stdev/$Mean; }
@@ -246,7 +242,7 @@ sub calcVariance {
 #-------------------------------------------------------------
 
 sub ReadFile {
-    my ($in_file, $filename, $col_coords, $col_occup, $occupancy_hashref) = @_;
+    my ($in_file, $filename, $col_coords, $col_occup, $occupancy_hashref, @names) = @_;
     my $filesize = -s $in_file; #determine file size in bytes
     my $size_counter_step=int($filesize/100);
     $filesize = int($filesize/1048576); # filesize in megabytes
@@ -290,10 +286,11 @@ sub ReadFile {
 			push (@string, split("\t",$line));
 			my $pos = $string[$col_coords];
 			$pos+=0;
-			if($pos == 3000159) {
-				sleep 1; }
 			my $occup = $string[$col_occup];
 			$occup+=0;
+			foreach my $file (@names) {
+					if(! exists ( $occupancy_hashref->{$pos}->{$file} ) ) { $occupancy_hashref->{$pos}->{$file}=0; }
+			}
 			$occupancy_hashref->{$pos}->{$filename} =  $occup;
 			push(@all_occups,$occup);
 			undef @string;
@@ -315,6 +312,7 @@ sub ReadFile {
 
     close($inFH) or die $!;
     my $mean_occup=calcMean(@all_occups);
+		undef @all_occups;
     return($mean_occup);
 }
 

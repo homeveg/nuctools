@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-bed2occupancy_average.pl - identify regions with highest variance between control and sample condition (based ion replicates) 
+compare_two_conditions.pl - identify regions with highest variance between control and sample condition (based on replicates) 
 
 =head1 SYNOPSIS
 
@@ -16,12 +16,12 @@ perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt>
 	
  Options:
     define column numbers in the input occupancy files (Nr. of the very first column is 0):
-    --Col_signal | -cs          occupancy column Nr. (default: 1)
-	--Col_coord | -cc           coordinate column Nr. (default: 0)
+    --Col_signal | -sC          occupancy column Nr. (default: 1)
+	--Col_coord | -cC           coordinate column Nr. (default: 0)
 	
    additional parameters
     --chromosome | -c           chromosome ID
-    --windowSize | -w           running window size (default: 100)
+    --windowSize | -w           running window size. Use same value as for average occupancy calculation (default: 100)
     --threshold1 | -t1          upper threshold (default: 0.8)
     --threshold2 | -t2          lower threshold (default: 0.5)
 	
@@ -118,11 +118,11 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'chromosome|c=s'  => \$chromosome,
 	'windowSize|w=s' => \$windowSize,
 	
-	'threshold1|t1' => \$threshold1,
-	'threshold2|t2' => \$threshold2,
+	'threshold1|t1=s' => \$threshold1,
+	'threshold2|t2=s' => \$threshold2,
 	
-	'Col_signal|s=s' => \$Col_signal,
-	'Col_coord|c=s' => \$Col_coord,
+	'Col_signal|sC=s' => \$Col_signal,
+	'Col_coord|cC=s' => \$Col_coord,
 	'verbose|v=s'   => \$verbose,
 	
 	'help|h'      => \$needsHelp
@@ -148,112 +148,11 @@ print STDERR "print all data to STDOUT: ",$verbose, "\n";
 my $tm = localtime;
 print STDERR "-----------------------\n",join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",join(":",$tm -> [2],$tm -> [1],$tm -> [0]),"\n-----------------------\n";
 
-my $filesize = -s $input1; #determine file size in bytes
-my $size_counter_step=int($filesize/100);
-$filesize = int($filesize/1048576); # filesize in megabytes
 
-print STDERR "Reading $input1 file of $filesize MBs. Please wait...\n";
+my %occupancy;
 
-#read file with by 4kb chanks
-#@coord_occ_array=();
-my $BUFFER_SIZE = 1024*4;
-
-# open file 1
-my $infile;
-if ( $input1 =~ (/.*\.gz$/) ) {
-	$infile = IO::Uncompress::Gunzip->new( $input1 )
-	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
-}
-else { open( $infile, "<", $input1 ) or die "error: $input1 cannot be opened:$!"; }
-
-my $buffer = "";
-my $sz_buffer = 0;
-my $timer2 = time();
-
-my $regex_split_newline='\n';
-
-my $processed_memory_size = 0;
-my $offset=0;
-
-my (@occup1,@pos1);
-
-while ((my $n = read($infile, $buffer, $BUFFER_SIZE)) !=0) {
-    if ($n >= $BUFFER_SIZE) {
-    $buffer .= <$infile>;
-    }
-    my @lines = split(/$regex_split_newline/o, $buffer);
-    # process each line in zone file
-    foreach my $line (@lines) {
-        my @string;
-        push (@string, split("\t",$line));
-        push (@occup1,$string[$Col_signal]);
-        push (@pos1,$string[$Col_coord]);
-        undef @string;
-    }
-    $processed_memory_size += $n;
-    $offset += $n;
-    if(int($processed_memory_size/1048576)>= $filesize/10) {
-        print STDERR "."; $processed_memory_size=0;
-        }
-    undef @lines;
-    $buffer = "";
-}
-
-my $duration = time()-$timer2;
-
-print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n\n";
-close($infile) or die $!;
-
-
-
-$filesize = -s $input2; #determine file size in bytes
-$size_counter_step=int($filesize/100);
-$filesize = int($filesize/1048576); # filesize in megabytes
-
-print STDERR "Reading $input2 file of $filesize MBs. Please wait...\n";
-
-# open file 2
-if ( $input2 =~ (/.*\.gz$/) ) {
-	$infile = IO::Uncompress::Gunzip->new( $input2 )
-	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
-}
-else { open( $infile, "<", $input2 ) or die "error: $input2 cannot be opened:$!"; }
-
-$buffer = "";
-$sz_buffer = 0;
-$timer2 = time();
-
-$processed_memory_size = 0;
-$offset=0;
-
-my (@occup2,@pos2);
-
-while ((my $n = read($infile, $buffer, $BUFFER_SIZE)) !=0) {
-    if ($n >= $BUFFER_SIZE) {
-    $buffer .= <$infile>;
-    }
-    my @lines = split(/$regex_split_newline/o, $buffer);
-    # process each line in zone file
-    foreach my $line (@lines) {
-        my @string;
-        push (@string, split("\t",$line));
-        push (@occup2,$string[$Col_signal]);
-        push (@pos2,$string[$Col_coord]);
-        undef @string;
-    }
-    $processed_memory_size += $n;
-    $offset += $n;
-    if(int($processed_memory_size/1048576)>= $filesize/10) {
-        print STDERR "."; $processed_memory_size=0;
-        }
-    undef @lines;
-    $buffer = "";
-}
-
-$duration = time()-$timer2;
-
-print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
-close($infile) or die $!;
+ReadFile($input1, 1, 2, $Col_coord, $Col_signal, \%occupancy);
+ReadFile($input2, 2, 1, $Col_coord, $Col_signal, \%occupancy);
 
 # open pipe to Gzip or open text file for writing
 my ($out_file,$gz_out_file, $OUT1_FHs, $OUT2_FHs);
@@ -273,46 +172,117 @@ my $above_counter=0;
 my $below_counter=0;
 my $null_counter=0;
 
-for (my $i=1; $i<=$#pos1; $i++) {
-    my $norm_difference;
-    if (($occup1[$i]==0) or ($occup2[$i])==0) { $null_counter++; next; }
+for my $position ( sort {$a<=>$b} keys %occupancy) {
+	my $occup1 = $occupancy{$position}{1};
+	my $occup2 = $occupancy{$position}{2};
+	
+	my $norm_difference=abs(2*($occup1-$occup2)/($occup1+$occup2));
 
-    if (($occup1[$i]+$occup2[$i])==0) { $norm_difference=0; }
-    else { $norm_difference=2*($occup1[$i]-$occup2[$i])/($occup1[$i]+$occup2[$i]); }
-    my $start_region = $pos1[$i]-$windowSize;
-    my $end_region = $pos1[$i];
+    my $start_region = $position-$windowSize;
+    my $end_region = $position;
     my $above_below_flag="between";
     if ($norm_difference > $threshold1) {
-        print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1[$i], $occup2[$i]),"\n";
+        print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
 	$above_counter++;
 	$above_below_flag="above";
     }
     if ($norm_difference < $threshold2) {
-        print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1[$i], $occup2[$i]),"\n";
+        print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1, $occup2),"\n";
 	$below_counter++;
 	$above_below_flag="below";
     }
     
-    if ($verbose eq "yes") {
+    if ($verbose) {
 	#code
-	print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1[$i],$occup2[$i]), "\n";
+	print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1,$occup2), "\n";
     }
-    
+	
 }
 
-my $between=$#pos1-$above_counter-$below_counter-$null_counter;
+
+
+my $size = keys %occupancy;
+
+my $between=$size-$above_counter-$below_counter;
 print STDERR "done!\n======================\n";
 print STDERR "Upper threshold: ",$threshold1, "\n";
 print STDERR "Lower threshold: ",$threshold2, "\n";
 print STDERR "======================\n",
-	     "$null_counter from $#pos1 entries eq to 0 in both datasets\n",
-	     "$between from $#pos1 entries are between 2 thresholds\n",
-	     "$above_counter from $#pos1 entries saved to $output1\n",
-	     "$below_counter from $#pos1 entries saved to $output2\n======================\n";
+	     "$between from $size entries are between 2 thresholds\n",
+	     "$above_counter from $size entries saved to $output1\n",
+	     "$below_counter from $size entries saved to $output2\n======================\n";
 close($OUT1_FHs) or die $!;
 close($OUT2_FHs) or die $!;
 exit;
 
+
+#--------------------------------------------------------------------------
+# read compressed occupancy file
+sub ReadFile {
+    my ($in_file, $filename1, $filename2, $col_coords, $col_occup, $occupancy_hashref) = @_;
+    my $filesize = -s $in_file; #determine file size in bytes
+    my $size_counter_step=int($filesize/100);
+    $filesize = int($filesize/1048576); # filesize in megabytes
+
+    print STDERR "Reading $in_file file of $filesize MBs. Please wait...\n";
+
+    #read file with by 4kb chanks
+    #@coord_occ_array=();
+    my $BUFFER_SIZE = 1024*4;
+    
+	# open compressed occupancy file
+	my $inFH;
+	if ( $in_file =~ (/.*\.gz$/) ) {
+		$inFH = IO::Uncompress::Gunzip->new( $in_file )
+		or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+	}
+	else { open( $inFH, "<", $in_file ) or die "error: $in_file cannot be opened:$!"; }
+
+    my $buffer = "";
+    my $sz_buffer = 0;
+    my $timer2 = time();
+    # counter for the markers we see
+    my $counter = 0;
+    
+    my $regex_split_newline='\n';
+    
+    my $processed_memory_size = 0;
+    my $offset=0;
+        
+    while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
+        if ($n >= $BUFFER_SIZE) {
+        $buffer .= <$inFH>;
+        }
+        my @lines = split(/$regex_split_newline/o, $buffer);
+        # process each line in zone file
+        foreach my $line (@lines) {
+			if ($line =~ /^\D*\t.*/) { next; }
+			my @string;
+			push (@string, split("\t",$line));
+			my $pos = $string[$col_coords]; $pos+=0;
+			my $occup = $string[$col_occup]; $occup+=0;
+			$occupancy_hashref->{$pos}->{$filename1} =  $occup;
+			if(! exists ($occupancy_hashref->{$pos}->{$filename2}) ) { $occupancy_hashref->{$pos}->{$filename2}=0; }
+			undef @string;
+			$counter++;
+        }
+        $processed_memory_size += $n;
+        $offset += $n;
+        if(int($processed_memory_size/1048576)>= $filesize/10) {
+            print STDERR "."; $processed_memory_size=0;
+            }
+        undef @lines;
+        $buffer = "";
+    }
+    
+    my $duration = time()-$timer2;
+    
+    print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
+	print STDERR "$counter positions added\n";
+
+    close($inFH) or die $!;
+    return;
+}
 
 #--------------------------------------------------------------------------
 # Check for problem with the options or if user requests help
