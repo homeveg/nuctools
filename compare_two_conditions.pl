@@ -1,28 +1,102 @@
-#!/usr/local/bin/perl
+#!/usr/bin/perl
 
-###==================================================================================================
-### Takes as input occupancy files for two conditions (which have been previously generated from 
-### several replicates using average_replicates.pl), and produces two files with regions of size 
-### windowSize, where the difference between the signal in condition 2 and condition 1 is 
-### correspondingly larger or smaller than threshold1 and threshold 2.
-###
-### (c) Yevhen Vainshtein, Vladimir Teif
-### 
-### compare_two_conditions.pl 
-### NucTools 1.0
-###==================================================================================================
-###
-### last changed: 17 July 2016
-###==================================================================================================
+=head1 NAME
 
-use strict;
+compare_two_conditions.pl - identify regions with highest variance between control and sample condition (based on replicates) 
+
+=head1 SYNOPSIS
+
+perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt> --output1=<more_than1.txt> --output2=<less_than1.txt> --chromosome="chr1" [--windowSize=100 --threshold1=0.8 --threshold2=0.5 --Col_signal=1 --Col_coord=0 --verbose --help]
+
+ Required arguments:
+    --input1 | -i1        input BED file or BED.GZ extended file (if option -dir is used)
+    --input2 | -i2        input BED file or BED.GZ extended file (if option -dir is used)
+    --output1 | -o1       output high/low varience regions file (OCC.GZ)
+    --output2 | -o2       output high/low varience regions file (OCC.GZ)
+	
+ Options:
+    define column numbers in the input occupancy files (Nr. of the very first column is 0):
+    --Col_signal | -sC          occupancy column Nr. (default: 1)
+	--Col_coord | -cC           coordinate column Nr. (default: 0)
+	
+   additional parameters
+    --chromosome | -c           chromosome ID
+    --windowSize | -w           running window size. Use same value as for average occupancy calculation (default: 100)
+    --threshold1 | -t1          upper threshold (default: 0.8)
+    --threshold2 | -t2          lower threshold (default: 0.5)
+	
+    --verbose | -v              consider strand when calculating occupancy
+    --help | -h                 Help
+    
+ Example usage:
+    compare_two_conditions.pl --input1=healthy.occ --input2=patients.occ --output1=more_than0.8.txt --output2=less_than0.5.txt --window=1000 --threshold1=0.5 --threshold2=0.8
+	
+	OR
+    
+    compare_two_conditions.pl -i1 healthy.occ -i2 patients.occ -o1 more_than0.8.txt -o2 less_than0.5.txt -w 1000 -t1 0.5 -t2 0.8
+
+ Note:
+    default column numbers refer to a standard bed file format:
+	
+	chromosome | read start | read end | read ID | score | strand
+	=============================================================
+	
+=head1 DESCRIPTION
+
+=head2 NucTools 1.0 package.
+
+ NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
+
+=head2 compare_two_conditions.pl
+
+ compare_two_conditions.pl takes as input occupancy files for two conditions (which have been previously generated from several replicates using average_replicates.pl), and produces two files with regions of size windowSize, where the difference between the signal in condition 2 and condition 1 is correspondingly larger or smaller than threshold1 and threshold 2.
+
+=head1 AUTHORS
+
+=over
+
+=item 
+ Yevhen Vainshtein <yevhen.vainshtein@igb.fraunhofer.de>
+ 
+=item 
+ Vladimir Teif
+ 
+=back
+
+=head2 Last modified
+
+ 14 October 2016
+ 
+=head1 LICENSE
+
+ Copyright (C) 2012-2016 Yevhen Vainshtein, Vladimir Teif
+
+    This program is free software; you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation; either version 3 of the License, or
+    (at your option) any later version.
+
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+
+    You should have received a copy of the GNU General Public License along
+    with this program; if not, write to the Free Software Foundation, Inc.,
+    51 Franklin Street, Fifth Floor, Boston, MA 02110-1301 USA.
+
+=cut
+
+
+use strict 'vars';
+use Getopt::Long;
+use Pod::Usage;
+use IO::Uncompress::Gunzip qw($GunzipError);
+use IO::Compress::Gzip qw(gzip $GzipError) ;
 use Time::localtime;
 use Time::Local;
 use File::Basename;
 use List::Util qw(sum);
-
-
-my $usage = "$0 -input1=healthy.txt -input2=patients.txt -output1=more_than1.txt -output2=less_than1.txt -chromosome=chr1 -windowSize=100 -threshold1=0.8 -threshold2=0.5 -Col_signal=1 -Col_coord=0\n";
 
 my ($input1,$input2);
 my $Col_signal=1;
@@ -30,29 +104,30 @@ my $Col_coord=0;
 my $threshold1=0.8;
 my $threshold2=0.5;
 my ($output1,$output2);
-my $chromosome="chr1";
+my $chromosome;
 my $windowSize=100;
-my $verbose = "no";
+my $verbose;
+my $needsHelp;
 
-if (@ARGV != 0) {
-    foreach my $comand_line_flag (@ARGV) {
-	if ($comand_line_flag =~ /-input1=(.*)/i) { $input1 = $1; }
-	if ($comand_line_flag =~ /-input2=(.*)/i) { $input2 = $1; }
-	if ($comand_line_flag =~ /-output1=(.*)/i) { $output1 = $1; }
-	if ($comand_line_flag =~ /-output2=(.*)/i) { $output2 = $1; }
-	if ($comand_line_flag =~ /-Col_signal=(.*)/i) { $Col_signal = $1; }
-	if ($comand_line_flag =~ /-Col_coord=(.*)/i) { $Col_coord = $1; }
-	if ($comand_line_flag =~ /-threshold1=(.*)/i) { $threshold1 = $1; }
-	if ($comand_line_flag =~ /-threshold2=(.*)/i) { $threshold2 = $1; }
-	if ($comand_line_flag =~ /-chromosome=(.*)/i) { $chromosome = $1; }
-	if ($comand_line_flag =~ /-windowSize=(.*)/i) { $windowSize = $1; }
-	if ($comand_line_flag =~ /--verbose/i) { $verbose = "yes"; }
-    }
-}
-else {
-    print STDERR $usage,"\n";
-    exit;
-}
+my $options_okay = &Getopt::Long::GetOptions(
+	'input1|i1=s' => \$input1,
+	'input2|i2=s' => \$input2,
+	'output1|o1=s'   => \$output1,
+	'output2|o2=s'   => \$output2,
+	
+	'chromosome|c=s'  => \$chromosome,
+	'windowSize|w=s' => \$windowSize,
+	
+	'threshold1|t1=s' => \$threshold1,
+	'threshold2|t2=s' => \$threshold2,
+	
+	'Col_signal|sC=s' => \$Col_signal,
+	'Col_coord|cC=s' => \$Col_coord,
+	'verbose|v=s'   => \$verbose,
+	
+	'help|h'      => \$needsHelp
+);
+
 
 print STDERR "======================================\n";
 print STDERR "input file 1:",$input1, "\n";
@@ -73,145 +148,182 @@ print STDERR "print all data to STDOUT: ",$verbose, "\n";
 my $tm = localtime;
 print STDERR "-----------------------\n",join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",join(":",$tm -> [2],$tm -> [1],$tm -> [0]),"\n-----------------------\n";
 
-my $filesize = -s $input1; #determine file size in bytes
-my $size_counter_step=int($filesize/100);
-$filesize = int($filesize/1048576); # filesize in megabytes
 
-print STDERR "Reading $input1 file of $filesize MBs. Please wait...\n";
+my %occupancy;
 
-#read file with by 4kb chanks
-#@coord_occ_array=();
-my $BUFFER_SIZE = 1024*4;
+ReadFile($input1, 1, 2, $Col_coord, $Col_signal, \%occupancy);
+ReadFile($input2, 2, 1, $Col_coord, $Col_signal, \%occupancy);
 
-# open original file
-open(INPUT, $input1) or die "error: $input1 cannot be opened\n";
-my $buffer = "";
-my $sz_buffer = 0;
-my $timer2 = time();
+# open pipe to Gzip or open text file for writing
+my ($out_file,$gz_out_file, $OUT1_FHs, $OUT2_FHs);
+$out_file = $output1;
+$out_file =~ s/(.*)\.gz$/$1/;
+$gz_out_file = $out_file.".gz";
+$OUT1_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 
-my $regex_split_newline='\n';
-
-my $processed_memory_size = 0;
-my $offset=0;
-
-my (@occup1,@pos1);
-
-while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
-    if ($n >= $BUFFER_SIZE) {
-    $buffer .= <INPUT>;
-    }
-    my @lines = split(/$regex_split_newline/o, $buffer);
-    # process each line in zone file
-    foreach my $line (@lines) {
-        my @string;
-        push (@string, split("\t",$line));
-        push (@occup1,$string[$Col_signal]);
-        push (@pos1,$string[$Col_coord]);
-        undef @string;
-    }
-    $processed_memory_size += $n;
-    $offset += $n;
-    if(int($processed_memory_size/1048576)>= $filesize/10) {
-        print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
-        }
-    undef @lines;
-    $buffer = "";
-}
-
-my $duration = time()-$timer2;
-
-print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n\n";
-close(INPUT) or die $!;
+$out_file = $output2;
+$out_file =~ s/(.*)\.gz$/$1/;
+$gz_out_file = $out_file.".gz";
+$OUT2_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 
 
-
-$filesize = -s $input2; #determine file size in bytes
-$size_counter_step=int($filesize/100);
-$filesize = int($filesize/1048576); # filesize in megabytes
-
-print STDERR "Reading $input2 file of $filesize MBs. Please wait...\n";
-
-# open original file
-open(INPUT, $input2) or die "error: $input2 cannot be opened\n";
-$buffer = "";
-$sz_buffer = 0;
-$timer2 = time();
-
-$processed_memory_size = 0;
-$offset=0;
-
-my (@occup2,@pos2);
-
-while ((my $n = read(INPUT, $buffer, $BUFFER_SIZE)) !=0) {
-    if ($n >= $BUFFER_SIZE) {
-    $buffer .= <INPUT>;
-    }
-    my @lines = split(/$regex_split_newline/o, $buffer);
-    # process each line in zone file
-    foreach my $line (@lines) {
-        my @string;
-        push (@string, split("\t",$line));
-        push (@occup2,$string[$Col_signal]);
-        push (@pos2,$string[$Col_coord]);
-        undef @string;
-    }
-    $processed_memory_size += $n;
-    $offset += $n;
-    if(int($processed_memory_size/1048576)>= $filesize/10) {
-        print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\n"; $processed_memory_size=0;
-        }
-    undef @lines;
-    $buffer = "";
-}
-
-$duration = time()-$timer2;
-
-print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
-close(INPUT) or die $!;
-
-open(OUT1,">$output1") or die $!;
-open(OUT2,">$output2") or die $!;
 print STDERR "\n======================\nstart filtering...";
 my $above_counter=0;
 my $below_counter=0;
 my $null_counter=0;
 
-for (my $i=1; $i<=$#pos1; $i++) {
-    my $norm_difference;
-    if (($occup1[$i]==0) or ($occup2[$i])==0) { $null_counter++; next; }
+for my $position ( sort {$a<=>$b} keys %occupancy) {
+	my $occup1 = $occupancy{$position}{1};
+	my $occup2 = $occupancy{$position}{2};
+	
+	my $norm_difference=abs(2*($occup1-$occup2)/($occup1+$occup2));
 
-    if (($occup1[$i]+$occup2[$i])==0) { $norm_difference=0; }
-    else { $norm_difference=2*($occup1[$i]-$occup2[$i])/($occup1[$i]+$occup2[$i]); }
-    my $start_region = $pos1[$i]-$windowSize;
-    my $end_region = $pos1[$i];
+    my $start_region = $position-$windowSize;
+    my $end_region = $position;
     my $above_below_flag="between";
     if ($norm_difference > $threshold1) {
-        print OUT1 join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1[$i], $occup2[$i]),"\n";
+        print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
 	$above_counter++;
 	$above_below_flag="above";
     }
     if ($norm_difference < $threshold2) {
-        print OUT2 join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1[$i], $occup2[$i]),"\n";
+        print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1, $occup2),"\n";
 	$below_counter++;
 	$above_below_flag="below";
     }
     
-    if ($verbose eq "yes") {
+    if ($verbose) {
 	#code
-	print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1[$i],$occup2[$i]), "\n";
+	print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1,$occup2), "\n";
     }
-    
+	
 }
 
-my $between=$#pos1-$above_counter-$below_counter-$null_counter;
+
+
+my $size = keys %occupancy;
+
+my $between=$size-$above_counter-$below_counter;
 print STDERR "done!\n======================\n";
 print STDERR "Upper threshold: ",$threshold1, "\n";
 print STDERR "Lower threshold: ",$threshold2, "\n";
 print STDERR "======================\n",
-	     "$null_counter from $#pos1 entries eq to 0 in both datasets\n",
-	     "$between from $#pos1 entries are between 2 thresholds\n",
-	     "$above_counter from $#pos1 entries saved to $output1\n",
-	     "$below_counter from $#pos1 entries saved to $output2\n======================\n";
-close(OUT1) or die $!;
-close(OUT2) or die $!;
+	     "$between from $size entries are between 2 thresholds\n",
+	     "$above_counter from $size entries saved to $output1\n",
+	     "$below_counter from $size entries saved to $output2\n======================\n";
+close($OUT1_FHs) or die $!;
+close($OUT2_FHs) or die $!;
 exit;
+
+
+#--------------------------------------------------------------------------
+# read compressed occupancy file
+sub ReadFile {
+    my ($in_file, $filename1, $filename2, $col_coords, $col_occup, $occupancy_hashref) = @_;
+    my $filesize = -s $in_file; #determine file size in bytes
+    my $size_counter_step=int($filesize/100);
+    $filesize = int($filesize/1048576); # filesize in megabytes
+
+    print STDERR "Reading $in_file file of $filesize MBs. Please wait...\n";
+
+    #read file with by 4kb chanks
+    #@coord_occ_array=();
+    my $BUFFER_SIZE = 1024*4;
+    
+	# open compressed occupancy file
+	my $inFH;
+	if ( $in_file =~ (/.*\.gz$/) ) {
+		$inFH = IO::Uncompress::Gunzip->new( $in_file )
+		or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+	}
+	else { open( $inFH, "<", $in_file ) or die "error: $in_file cannot be opened:$!"; }
+
+    my $buffer = "";
+    my $sz_buffer = 0;
+    my $timer2 = time();
+    # counter for the markers we see
+    my $counter = 0;
+    
+    my $regex_split_newline='\n';
+    
+    my $processed_memory_size = 0;
+    my $offset=0;
+        
+    while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
+        if ($n >= $BUFFER_SIZE) {
+        $buffer .= <$inFH>;
+        }
+        my @lines = split(/$regex_split_newline/o, $buffer);
+        # process each line in zone file
+        foreach my $line (@lines) {
+			if ($line =~ /^\D*\t.*/) { next; }
+			my @string;
+			push (@string, split("\t",$line));
+			my $pos = $string[$col_coords]; $pos+=0;
+			my $occup = $string[$col_occup]; $occup+=0;
+			$occupancy_hashref->{$pos}->{$filename1} =  $occup;
+			if(! exists ($occupancy_hashref->{$pos}->{$filename2}) ) { $occupancy_hashref->{$pos}->{$filename2}=0; }
+			undef @string;
+			$counter++;
+        }
+        $processed_memory_size += $n;
+        $offset += $n;
+        if(int($processed_memory_size/1048576)>= $filesize/10) {
+            print STDERR "."; $processed_memory_size=0;
+            }
+        undef @lines;
+        $buffer = "";
+    }
+    
+    my $duration = time()-$timer2;
+    
+    print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
+	print STDERR "$counter positions added\n";
+
+    close($inFH) or die $!;
+    return;
+}
+
+#--------------------------------------------------------------------------
+# Check for problem with the options or if user requests help
+sub check_opts {
+	if ($needsHelp) {
+		pod2usage( -verbose => 2 );
+	}
+	if ( !$options_okay ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Error specifying options."
+		);
+	}
+	if ( ! -f $input2 ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Cannot find input file $input2: $!\n"
+		);
+	}
+	if ( ! -e $input1 ) {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Cannot find input file $input1: $!\n"
+		);
+	}
+	if ( !$output1 )  {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Please specify output regions file name!\n"
+		);
+	}
+	if ( !$output2 )  {
+		pod2usage(
+			-exitval => 2,
+			-verbose => 1,
+			-message => "Please specify output regions file name!\n"
+		);
+	}
+
+}

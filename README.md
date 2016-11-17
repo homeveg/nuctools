@@ -124,5 +124,11 @@ There are several changes has been planned and partially implemented:
 - parallel processing (beautiful codes snippets for implementation of parallel processing of BAM files with Perl one can find here: https://genomebytes.wordpress.com/2013/07/24/multi-thread-access-of-bam-files-using-perl-and-samtools/ )
 - NucTools automated package installation with make
 
+## Major changes (in porogres):
+- GZIP support implementation - all input files can be compressed and all newly created output files saved as *.gz
+- Handle gapped occupancy files: to save space and memory remove all regions/bases with 0 counts
+- implement POD documentation (with Pod::Usage)
+- command line parametrs allow long and short options (with Getopt::Long::GetOptions)
+
 ### Developers: 
 Yevhen Vainshtein and Vladimir B. Teif
