@@ -42,6 +42,7 @@ in the "test" directory. More details are stated in the INSTRUCTION section.
     2. converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:
     
         $ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
+        
         $ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz > /Path_to_folder_with/BED/test_sorted.bed.gz
 
 5. Running NucTools:
