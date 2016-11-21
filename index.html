@@ -123,12 +123,11 @@ The NucTools package does not require installation. It is a collection of indivi
 </ul>
 <pre><code>$ ls /Path_to_folder_with/OCC/<em>1000_1000.txt | perl -n -e 'if(/.</em>(chr.<em>).test.</em>/gm) { print $1, "\t"; }' | perl -n -e 'if( /(.*)\t$/g )  { print $1}' &gt; /Path_to_folder_with/OCC/test.all.occ.txt
 $ echo "" &gt;&gt; /Path_to_folder_with/OCC/test.all.occ.txt</code></pre>
-
 <ul>
-<li>paste all aggregate profiles to one file
-<pre><code>$ paste /Path_to_folder_with/OCC/*1000_1000.txt &gt;&gt; /Path_to_folder_with/OCC/test.all.occ.txt</code></pre>
+<li>paste all aggregate profiles to one file<br>
 </li>
 </ul>
+<pre><code>$ paste /Path_to_folder_with/OCC/*1000_1000.txt &gt;&gt; /Path_to_folder_with/OCC/test.all.occ.txt</code></pre>
 </li>
 </ol>
 </li>
