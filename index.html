@@ -72,9 +72,11 @@ The NucTools package does not require installation. It is a collection of indivi
 <pre><code>$ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam</code></pre>
 </li>
 <li>
-<p>converted sorted BAM file to BED:  </p>
-
-<pre><code>$ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz &gt; /Path_to_folder_with/BED/test_sorted.bed.gz</code></pre>
+<p>converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:  </p>
+<pre><code>$ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
+# using bedtools
+$ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz &gt; /Path_to_folder_with/BED/test_sorted.bed.gz
+</code></pre>
 </li>
 </ol>
 </li>
