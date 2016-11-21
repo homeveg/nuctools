@@ -41,12 +41,12 @@ in the "test" directory. More details are stated in the INSTRUCTION section.
         $ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam
     2. converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:
     
-        $ perl -w bowtie2bed.pl.pl --input=/Path_to_folder_with/BAM/test_sorted.bam --verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
+        $ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
         $ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz > /Path_to_folder_with/BED/test_sorted.bed.gz
 
 5. Running NucTools:
     1. Extend single-end reads to the average DNA fragment size
-    
+        
         $ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz -fL 147
         
     2. Extract individual chromosomes from whole genome BED
@@ -98,7 +98,7 @@ For the moment we don't have a wrapper to run all 3 steps automatically so, each
 We will provide a testing BAM file, command line bash file, and example output in ./test. Below is a set of commands that runs "test.bam" through NucTools pipeline:
 
         $ samtools sort -n ./test/test_sorted.bam ./test/test.bam
-        $ bowtie2bed.pl.pl --input=./test/test_sorted.bam --verbose > ./test/test_sorted.bed.gz
+        $ bowtie2bed.pl -i ./test/test_sorted.bam --verbose > ./test/test_sorted.bed.gz
         $ extend_SE_reads.pl -in ./test/test.bed -out ./test/test.ext.bed.gz
         $ extract_chr_bed.pl -in ./test/test.ext.bed.gz -out test/BED -d ./test -p chr 
         $ bed2occupancy_average.pl -in ./test/BED -odir ./test/OCC -dir -use -w 10
