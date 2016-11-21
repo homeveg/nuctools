@@ -38,7 +38,8 @@ in the "test" directory. More details are stated in the INSTRUCTION section.
 4. Prepare BED files from BAM files with external application (optionally) 
     1. merge multiple replicates to one BAM file and sort by reads name:
         $ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam
-    2. converted sorted BAM file to BED
+    2. converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:
+        $  perl -w bowtie2bed.pl.pl --input=/Path_to_folder_with/BAM/test_sorted.bam --verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
         $ 	bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz > /Path_to_folder_with/BED/test_sorted.bed.gz
 
 5. Running NucTools:
@@ -71,7 +72,7 @@ NucTools utilize whole genome [BED](https://genome.ucsc.edu/FAQ/FAQformat#format
 
 **Optional external applications:**
     
-- [SamTools](http://samtools.sourceforge.net/) - merge and sort BAM files
+- [SamTools](http://samtools.sourceforge.net/) - merge, sort and convert BAM files
 - [bedtools](http://bedtools.readthedocs.io/en/latest/index.html) - convert BAM to BED
 - [PIGZ](http://zlib.net/pigz/) - a parallel implementation of gzip for modern multi-processor, multi-core machines
 
@@ -84,7 +85,7 @@ For the moment we don't have a wrapper to run all 3 steps automatically so, each
 We will provide a testing BAM file, command line bash file, and example output in ./test. Below is a set of commands that runs "test.bam" through NucTools pipeline:
 
         $ samtools sort -n ./test/test_sorted.bam ./test/test.bam
-        $ bedtools bamtobed -i ./test/test_sorted.bam | pigz > ./test/test_sorted.bed.gz
+        $ bowtie2bed.pl.pl --input=./test/test_sorted.bam --verbose > ./test/test_sorted.bed.gz
         $ extend_SE_reads.pl -in ./test/test.bed -out ./test/test.ext.bed.gz
         $ extract_chr_bed.pl -in ./test/test.ext.bed.gz -out test/BED -d ./test -p chr 
         $ bed2occupancy_average.pl -in ./test/BED -odir ./test/OCC -dir -use -w 10
