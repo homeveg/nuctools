@@ -150,7 +150,7 @@ For the moment we don't have a wrapper to run all 3 steps automatically so, each
 <p>We will provide a testing BAM file, command line bash file, and example output in ./test. Below is a set of commands that runs "test.bam" through NucTools pipeline:</p>
 
 <pre><code>    $ samtools sort -n ./test/test_sorted.bam ./test/test.bam
-    $ bedtools bamtobed -i ./test/test_sorted.bam | pigz &gt; ./test/test_sorted.bed.gz
+    $ bowtie2bed.pl -i ./test/test_sorted.bam --verbose > ./test/test_sorted.bed.gz
     $ extend_SE_reads.pl -in ./test/test.bed -out ./test/test.ext.bed.gz
     $ extract_chr_bed.pl -in ./test/test.ext.bed.gz -out test/BED -d ./test -p chr 
     $ bed2occupancy_average.pl -in ./test/BED -odir ./test/OCC -dir -use -w 10
