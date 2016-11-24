@@ -5,8 +5,8 @@
 calc_fragment_length.pl -  Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length
 
 =head1 SYNOPSIS
-perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt> \
- [--delta=<N> --apply_filter --filtering_threshold=<N> --pile=<N> --fix_pile_size ] \
+perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt> 
+ [--delta=<N> --apply_filter --filtering_threshold=<N> --pile=<N> --fix_pile_size ] 
  [--chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --help]
 
 
@@ -19,11 +19,11 @@ perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt> \
   define column numbers in the input BED file (Nr. of the very first column is 0):
     --start_col | -sC            read start column Nr. (default: -s 1)
     --end_col | -eC              read end column Nr. (default: -e 2)
-    --strand_col | -str          strand column Nr. (default: -str 5)
+    --strand_col | -str          strand column Nr. (default: -str 3)
     --chromosome_col | -chrC     chromosome column Nr. (default: -chr 0)
 
    parameters with default values:
-    --delta | -d                  maximum distance from start of the reference nucleosome to the last in calculations (default: 400)
+    --delta | -d                  maximum distance from start of the origin nucleosome to the last in calculations (default: 400)
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
    
@@ -102,7 +102,6 @@ use List::Util qw(first);
 # Default parametrs
 my $delta = 400;
 my $pile = 1;
-
 my $in_file; 
 my $out_path1; 
 #  Time count Initialisation
@@ -120,7 +119,7 @@ my $fix_pile_size;
 # default BED file columns
 my $start_col=1;
 my $end_col=2;
-my $strand_col=5;
+my $strand_col=3;
 my $chromosome_col=0;
 
 my $needsHelp;
@@ -156,10 +155,14 @@ print STDERR "======================================\n";
 print STDERR "in file:",$in_file, "\n";
 print STDERR "out file:",$out_path1, "\n";
 print STDERR "delta: ",$delta, "\n";
-print STDERR "pile: $pile\n";
-print STDERR "filtering threshold: $piles_filtering_threshold\n";
-if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"; }
+print STDERR "pile: $pile - ";
+if ( defined $fix_pile_size) { print STDERR "select only nucleosomes in piles of fixed size\n"; }
+else { print STDERR "use arbitrary pile size\n"; }
+
+print STDERR "filtering threshold: $piles_filtering_threshold - ";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
+else { print STDERR "do not apply upper filtering threshold\n"; }
+
 print STDERR "======================================\n";
 
 
@@ -168,7 +171,7 @@ my @occ_array=();
 #read first file with occupanicies
 #read file with by 4kb chanks
 
-print STDERR "Step 1 (",time()-$timer1," sec.): reading $in_file file...\n";
+print STDERR " -reading $in_file file...\n";
 
 @occ_array=();
 my $BUFFER_SIZE = 1024*4;
@@ -194,7 +197,7 @@ my $filesize = -s $in_file; #determine file size in bytes
 my $size_counter_step=int($filesize/100);
 $filesize = int($filesize/1048576); # filesize in megabytes
 
-print STDERR "- reading nucleosome start position column from $in_file ($filesize MBs). Please wait...\n";
+print STDERR "- reading nucleosome start position column from $in_file ($filesize MBs).\nPlease wait...";
 
 my $processed_memory_size = 0;
 my $offset=0;
@@ -203,7 +206,7 @@ my $string_counter=0;
 my $chr_start;  #first read start
 my $chr_end;    # last read end
 
-my (@starts, @ends, @length, %starts_hash, @indexis);
+my (%hash);
 while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     if ($n >= $BUFFER_SIZE) {
     $buffer .= <$inFH>;
@@ -213,10 +216,11 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     foreach my $line (@lines) {
 	chomp($line);
         my @newline1=split(/\t/, $line);
-        my $start_nuc=$newline1[1];
-        my $end_nuc=$newline1[2];
-        push(@starts, $start_nuc);
-        push(@ends, $end_nuc);
+        my $start_nuc=$newline1[$start_col];
+        my $end_nuc=$newline1[$end_col];
+		my $strand = $newline1[$strand_col] eq '+' ? 'plus' : 'minus' ;
+		$hash{$string_counter}{$strand}{start}=$start_nuc;
+		$hash{$string_counter}{$strand}{end}=$end_nuc;
 
         $string_counter++;
 	if ($start_nuc>0) {$not_zero_counter++;}
@@ -231,202 +235,77 @@ $buffer = "";
 }
 
 close($inFH) or die $!; 
-print STDERR $filesize, " Mbs processed in ", time()-$timer2, " seconds.\n$not_zero_counter non zero counts, ",$#starts+1," lines\n\n";
-
-# remove empty strings
-$timer2= time();
-print STDERR "- cleaning from empty strings (if any)...";
-@starts = grep /\S/, @starts;
-@ends = grep /\S/, @ends;
-print STDERR "done in ", time()-$timer2, " seconds. ",$#starts+1," strings left\n";
+print STDERR $filesize, " Mbs processed in ", time()-$timer2, " seconds.\n$not_zero_counter non zero counts\n\n";
 
 # sort nucleosome positions according to a start_nuc
 $timer2= time();
 print STDERR "- sorting...";
-my @sorted_starts = sort {$a <=> $b} @starts;
-my @sorted_ends = sort {$a <=> $b} @ends;
+
+# Flatten
+my @flat_array = hash_crawler(\%hash);
+my @sorted_array = sort { $a->[3] <=> $b->[3] or $a->[2] <=> $b->[2] } @flat_array;
+print STDERR "done in ", time()-$timer2, " seconds.\n";
+
+my (@sorted_plus_starts, @sorted_minus_starts, @sorted_plus_ends, @sorted_minus_ends);
+for my $entry (@sorted_array) {
+   #print join ", ", @$entry;
+    #print "\n";
+	if ( (@$entry[1] eq "plus" ) and ( @$entry[2] eq "start" ) ) {
+		push (@sorted_plus_starts, @$entry[3]);
+	}
+	elsif ( (@$entry[1] eq "plus" ) and ( @$entry[2] eq "end" ) ) {
+		push (@sorted_plus_ends, @$entry[3]);
+	}
+	elsif ( (@$entry[1] eq "minus" ) and ( @$entry[2] eq "start" ) ) {
+		push (@sorted_minus_starts, @$entry[3]);
+	}
+	elsif ( (@$entry[1] eq "minus" ) and ( @$entry[2] eq "end" ) ) {
+		push (@sorted_minus_ends, @$entry[3]);
+	}
+	
+}
+
+print STDERR join("\t", "plus starts: $#sorted_plus_starts",  "plus ends: $#sorted_plus_ends",
+				  "minus starts: $#sorted_minus_starts",  "minus ends: $#sorted_minus_ends"),"\n";
+
+for (my $i=0; $i<=10; $i++) {
+	print STDERR join("\t", $sorted_plus_starts[$i],  $sorted_plus_ends[$i], 
+				  $sorted_minus_starts[$i], $sorted_minus_ends[$i]),"\n";
+}
 
 print STDERR "done in ", time()-$timer2, " seconds.\n";
 $timer2= time();
 
 # remove nucleosomoes without repeat ($pile>1)
-my @temp;
 if ($pile>1) {
-    $timer2= time();
-    if($fix_pile_size) {
-	print STDERR "- select only pile=$pile...";
-    }
-    else {
-	print STDERR "- removing un-piled nucleosomes...";
-    }
-    
-    my @only_piled;
-    my $pile_counter=0;
-
-    for (my $i=1; $i<=$#sorted_starts; $i++) {
-	if (!@temp) { push(@temp,$sorted_starts[$i-1]); }
-	if ($sorted_starts[$i-1] == $sorted_starts[$i]) {
-	    push(@temp,$sorted_starts[$i]);
-	    $pile_counter++;
-	}
-	elsif ($pile_counter < $pile) {
-	    undef @temp;
-	    $pile_counter=0;
-	}
-	elsif (($sorted_starts[$i-1] != $sorted_starts[$i]) && ($#temp>0)) {
-	    if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
-		undef @temp;
-	    }
-	    else {
-		push @only_piled, @temp;
-		undef @temp;
-	    }
-	    $pile_counter=0;
-	}
-
-    }
-    undef @sorted_starts;
-    @sorted_starts = grep /\S/, @only_piled;
-    print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_starts+1," strings left\n";
+	print STDERR "remove nucleosomoes without repeat\n";
+	my @temp = remove_unpiled($pile, $fix_pile_size, @sorted_plus_starts);
+	@sorted_plus_starts = @temp;
+	@temp = remove_unpiled($pile, $fix_pile_size, @sorted_minus_starts);
+	@sorted_minus_starts = @temp;
+	undef @temp;
 }
 
-#apply local pile filter: at one position should be less than threshold nucleosom starts
-if(! $fix_pile_size ) {
-    $timer2= time();
-    undef @temp;
-    if ($apply_filter_flag) {
-	$timer2= time();
-	print STDERR "- apply local pile filter: removing reads in the pile above $piles_filtering_threshold ...";
-	my @piled_under_threshold;
-	my $pile_counter=0;
-    
-	for (my $i=1; $i<=$#sorted_starts; $i++) {
-	    if (!@temp) { push(@temp,$sorted_starts[$i-1]); }
-	    if ($sorted_starts[$i-1] == $sorted_starts[$i]) {
-		push(@temp,$sorted_starts[$i]);
-		$pile_counter++;
-	    }
-	    elsif ($pile_counter >= $piles_filtering_threshold) {
-		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
-		undef @temp;
-		$pile_counter=0;
-	    }
-	    elsif (($sorted_starts[$i-1] != $sorted_starts[$i]) && ($#temp>0)) {
-		push @piled_under_threshold, @temp;
-		undef @temp;
-		$pile_counter=0;
-	    }
-    
-	}
-	undef @sorted_starts;
-	@sorted_starts = grep /\S/, @piled_under_threshold;
-	print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_starts+1," strings left\n";
-    }
+if ($apply_filter_flag) {
+	print STDERR "remove piles above $piles_filtering_threshold\n";
+	my @temp = filter_by_threshold($piles_filtering_threshold, @sorted_plus_starts);
+	@sorted_plus_starts = @temp;
+	@temp = filter_by_threshold($piles_filtering_threshold, @sorted_minus_starts);
+	@sorted_minus_starts = @temp;
+	undef @temp;
 }
 
-
-undef @temp;
-if ($pile>1) {
-    $timer2= time();
-    if($fix_pile_size) { 	print STDERR "- select only pile=$pile...";      }
-    else {  	print STDERR "- removing un-piled nucleosomes...";     }
-    
-    my @only_piled;
-    my $pile_counter=0;
-
-    for (my $i=1; $i<=$#sorted_ends; $i++) {
-	if (!@temp) { push(@temp,$sorted_ends[$i-1]); }
-	if ($sorted_ends[$i-1] == $sorted_ends[$i]) {
-	    push(@temp,$sorted_ends[$i]);
-	    $pile_counter++;
-	}
-	elsif ($pile_counter < $pile) {
-	    undef @temp;
-	    $pile_counter=0;
-	}
-	elsif (($sorted_ends[$i-1] != $sorted_ends[$i]) && ($#temp>0)) {
-	    if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
-		undef @temp;
-	    }
-	    else {
-		push @only_piled, @temp;
-		undef @temp;
-	    }
-	    $pile_counter=0;
-	}
-
-    }
-    undef @sorted_ends;
-    @sorted_ends = grep /\S/, @only_piled;
-    print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_ends+1," strings left\n";
+if ($fix_pile_size ) {
+	print STDERR "select only piles of size $piles_filtering_threshold\n";
+	my @temp = local_pile_filter($piles_filtering_threshold, @sorted_plus_starts);
+	@sorted_plus_starts = @temp;
+	@temp = local_pile_filter($piles_filtering_threshold, @sorted_minus_starts);
+	@sorted_minus_starts = @temp;
+	undef @temp;
 }
 
-#apply local pile filter: at one position should be less than threshold nucleosom starts
-if(! $fix_pile_size ) {
-    $timer2= time();
-    undef @temp;
-    if ($apply_filter_flag) {
-	$timer2= time();
-	print STDERR "- apply local pile filter: removing reads in the pile above $piles_filtering_threshold ...";
-	my @piled_under_threshold;
-	my $pile_counter=0;
-    
-	for (my $i=1; $i<=$#sorted_ends; $i++) {
-	    if (!@temp) { push(@temp,$sorted_ends[$i-1]); }
-	    if ($sorted_ends[$i-1] == $sorted_ends[$i]) {
-		push(@temp,$sorted_ends[$i]);
-		$pile_counter++;
-	    }
-	    elsif ($pile_counter >= $piles_filtering_threshold) {
-		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
-		undef @temp;
-		$pile_counter=0;
-	    }
-	    elsif (($sorted_ends[$i-1] != $sorted_ends[$i]) && ($#temp>0)) {
-		push @piled_under_threshold, @temp;
-		undef @temp;
-		$pile_counter=0;
-	    }
-    
-	}
-	undef @sorted_ends;
-	@sorted_ends = grep /\S/, @piled_under_threshold;
-	print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_ends+1," strings left\n";
-    }
-}
-
-print STDERR "Step 2: Start analysis...\n";
-$timer2= time();    
-my @output_array = (0) x ($delta+1); #initialize array of 0 of $delta+1 size
-my $first_itteration=0;
-my $counter_step=int($#sorted_starts/100);
-my $progress_counter=$counter_step;
-
-for (my $i=0; $i<$#sorted_starts; $i++) {
-    #read read start
-    my $nuc_start=$sorted_starts[$i];
-    # calcualte maximum index shift
-    my $max_delta_index=5*$delta;
-    # check if incremented index exceeds reads array length and correct it if necessary
-    if ($i+$max_delta_index>=$#sorted_starts) { $max_delta_index = $#sorted_starts-$i; }
-    for (my $n=1; $n<=$max_delta_index ; $n++) {
-	if (!$sorted_starts[$i+$n]) { last; }
-        my $nuc_plus_end=$sorted_ends[$i+$n];
-        my $delta_nuc_starts = $nuc_plus_end-$nuc_start;
-	if (($delta_nuc_starts>$delta) or ($delta_nuc_starts<0)) { last; }
-        else { $output_array[$delta_nuc_starts]++; }
-    }
-    #increment counter to display work progress
-    if ( $progress_counter == $i ) {
-	if ($first_itteration==0) { my $approx_duration = (time()-$timer2)*100/60; print STDERR "work will be finished in approximately $approx_duration minutes\n"; $first_itteration=1; }
-	print STDERR ".";
-	#print STDERR join (" ", @output_array[0..5],"..",@output_array[145..150]), "\n";
-	$progress_counter+=$counter_step;
-    }
-}
-print STDERR "\ndone\n"; 
-
-@output_array = grep /\S/, @output_array;
+my @output_array=distogram(\@sorted_plus_starts, \@sorted_minus_ends, $delta);
+#my @results_minus2plus=distogram(\@sorted_minus_starts, \@sorted_plus_ends, $delta);
 
 print STDERR "- saving resuts to $out_path1...";
 
@@ -438,7 +317,7 @@ my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die 
 print $OUT_FHs join("\n", @output_array);
 close (OCCUP_File);
 print STDERR "done\n\n";
-my $fragment_length_estimate = first { $output_array[$_] >0 } 0..$#output_array;
+my $fragment_length_estimate = first { $output_array[$_] == max(@output_array) } 0..$#output_array;
 print STDERR "Estimated fragment length is $fragment_length_estimate \n\n";
 
 my $out_path_fl;
@@ -469,6 +348,8 @@ undef @output_array;
 exit;
 
 
+
+#============================================================================
 #--------------- clean line endings ----------------------------
 sub clean {
 
@@ -484,6 +365,13 @@ sub max {
   my $max = $_[0];
   for ( @_[ 1..$#_ ] ) { $max = $_ if $_ > $max; }
   return($max);
+}
+
+#-------------- determine maxsimum value from the array ---------
+sub min {
+  my $min = $_[0];
+  for ( @_[ 1..$#_ ] ) { $min = $_ if $_ < $min; }
+  return($min);
 }
 
 #===========================================================#
@@ -532,4 +420,178 @@ sub check_opts {
 		);
 	}
 
+}
+
+sub hash_crawler {
+    my ($value, @prefix_array) = @_;
+    my @results = ();
+    if (ref $value) {
+        for (keys %$value) {
+            push @results, hash_crawler($value->{$_},@prefix_array,$_);
+        }
+    } else {
+        push @results, [@prefix_array, $value];
+    }
+    return @results;
+}
+
+sub remove_unpiled {
+	my ($pile, $fix_pile_size, @sorted_coords) = @_;
+	my @only_piled = ();
+	my @temp;
+
+	$timer2= time();
+	if($fix_pile_size) {
+	print STDERR "- select only pile=$pile...";
+	}
+	else {
+	print STDERR "- removing un-piled nucleosomes...";
+	}
+	
+	my $pile_counter=0;
+
+	for (my $i=1; $i<=$#sorted_coords; $i++) {
+	if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
+	if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
+		push(@temp,$sorted_coords[$i]);
+		$pile_counter++;
+	}
+	elsif ($pile_counter < $pile) {
+		undef @temp;
+		$pile_counter=0;
+	}
+	elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
+		if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
+		undef @temp;
+		}
+		else {
+		push @only_piled, @temp;
+		undef @temp;
+		}
+		$pile_counter=0;
+	}
+
+	}
+	my @results = grep /\S/, @only_piled;
+	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
+	return(@results);
+	
+}
+
+sub filter_by_threshold {
+	my ($piles_filtering_threshold, @sorted_coords) = @_;
+	print STDERR "- apply local pile filter: removing reads in the pile above $piles_filtering_threshold ...";
+	my @piled_under_threshold;
+	my $pile_counter=0;
+	my @temp;
+	
+	for (my $i=1; $i<=$#sorted_coords; $i++) {
+		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
+		if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
+		push(@temp,$sorted_coords[$i]);
+		$pile_counter++;
+		}
+		elsif ($pile_counter >= $piles_filtering_threshold) {
+		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
+		undef @temp;
+		$pile_counter=0;
+		}
+		elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
+		push @piled_under_threshold, @temp;
+		undef @temp;
+		$pile_counter=0;
+		}
+	
+	}
+	my @results = grep /\S/, @piled_under_threshold;
+	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
+	return(@results);
+}
+
+sub local_pile_filter {
+	my ($piles_filtering_threshold, @sorted_coords) = @_;
+	my @only_piled = ();
+	my @temp;
+
+	print STDERR "- apply local pile filter: removing reads in the pile above $piles_filtering_threshold ...";
+	my @piled_under_threshold;
+	my $pile_counter=0;
+	
+	for (my $i=1; $i<=$#sorted_coords; $i++) {
+		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
+		if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
+		push(@temp,$sorted_coords[$i]);
+		$pile_counter++;
+		}
+		elsif ($pile_counter >= $piles_filtering_threshold) {
+		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
+		undef @temp;
+		$pile_counter=0;
+		}
+		elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
+		push @piled_under_threshold, @temp;
+		undef @temp;
+		$pile_counter=0;
+		}
+	
+	}
+	my @results = grep /\S/, @piled_under_threshold;
+	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
+	return(@results);
+
+}
+
+sub distogram {
+	my ($sorted_starts_ref, $sorted_ends_ref, $delta) = @_;
+	
+	my @output_array = (0) x ($delta+1); #initialize array of 0 of $delta+1 size
+	my $first_itteration=0;
+	my @sorted_starts = @{ $sorted_starts_ref };
+	my @ends = @{ $sorted_ends_ref };
+
+	my $counter_step=int($#sorted_starts/100);
+	my $progress_counter=$counter_step;
+
+	print STDERR "- calculating distances between adjacent nucleosomes (in the region from up to $delta bases away from the origin)...\n";
+	
+	#print STDERR join("\t", "SIndx", "EIndx", "summ", "nuc_start", "nuc_end", "delta", "total starts", "total ends"), "\n";
+
+	for (my $i=0; $i<$#sorted_starts; $i++) {
+		#read read start
+		my $nuc_start=$sorted_starts[$i];
+		# calcualte maximum index shift
+		my $max_delta_index=5*$delta;
+		# check if incremented index exceeds reads array length and correct it if necessary
+		if ($i+$max_delta_index>=$#sorted_starts) { $max_delta_index = $#sorted_starts-$i; }
+		my @sorted_ends=@ends;
+
+		for (my $n=0; $n<=$max_delta_index ; $n++) {
+			if (!$sorted_starts[$i+$n]) { last; }
+			# remove ends 
+			for (my $j=0; $j<=$#sorted_ends; $j++) { 
+				if ( $sorted_ends[0] > $nuc_start ) { last; }
+				else { shift @sorted_ends; }
+			}
+			my $nuc_plus_end=$sorted_ends[$n];
+			my $delta_nuc_starts = $nuc_plus_end-$nuc_start;
+			if (($delta_nuc_starts>$delta) or ($delta_nuc_starts<0)) {
+				#print STDERR join("\t", "- $i", $n, $i+$n, $nuc_start, $nuc_plus_end, $delta_nuc_starts, $#sorted_starts, $#sorted_ends), "\n";
+				last;
+			}
+			else {
+				$output_array[$delta_nuc_starts]++;
+				#print STDERR join("\t", $i, $n, $i+$n, $nuc_start, $nuc_plus_end, $delta_nuc_starts, $#sorted_starts, $#sorted_ends), "\n";
+			}
+		}
+		undef @sorted_ends;
+		#increment counter to display work progress
+		if ( $progress_counter == $i ) {
+			print STDERR ".";
+			$progress_counter+=$counter_step;
+			#last; # for testing
+		}
+	}
+	my @results = grep /\S/, @output_array;
+	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
+	return(@results);
 }
