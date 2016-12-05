@@ -310,28 +310,13 @@ my @output_array=distogram(\@sorted_plus_starts, \@sorted_minus_ends, $delta);
 print STDERR "- saving resuts to $out_path1...";
 
 # open pipe to Gzip or open text file for writing
-my $out_file = $out_path1;
-$out_file =~ s/(.*)\.gz$/$1/;
-my $gz_out_file = $out_file.".gz";
-my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+my $OUT_FHs = open ">$out_path1" or die "Can't open $out_path1 for writing: $!\n";
 print $OUT_FHs join("\n", @output_array);
-close (OCCUP_File);
+close ($OUT_FHs);
 print STDERR "done\n\n";
 my $fragment_length_estimate = first { $output_array[$_] == max(@output_array) } 0..$#output_array;
 print STDERR "Estimated fragment length is $fragment_length_estimate \n\n";
 
-my $out_path_fl;
-if ($out_path1 =~/\//) {
-    $out_path_fl=$out_path1;
-    $out_path_fl =~s/(.*\/)(.*)$/$1Fragment_length.$2/;
-}
-else { $out_path_fl= "Fragment_length.".$out_path1; }
-
-print STDERR "saving fragment length to to a file $out_path_fl...";
-open (OCCUP_File, ">$out_path_fl") or die "can't open file $out_path_fl for writting: $!";
-print OCCUP_File $fragment_length_estimate,"\n";
-close (OCCUP_File);
-print STDERR "done\n";
 
 $tm = localtime;
 my $stop_sec = $tm -> [0];
@@ -406,11 +391,13 @@ sub check_opts {
 		);
 	}
 	if ( ! -e $in_file ) {
-		pod2usage(
-			-exitval => 2,
-			-verbose => 1,
-			-message => "Cannot find input BED file $in_file: $!\n"
-		);
+		if ( ! -e "$in_file.gz" ) {
+			pod2usage(
+				-exitval => 2,
+				-verbose => 1,
+				-message => "Cannot find input BED file $in_file or $in_file.gz: $!\n"
+			);
+		}
 	}
 	if (!$out_path1 ) {
 		pod2usage(
