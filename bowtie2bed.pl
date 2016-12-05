@@ -6,7 +6,7 @@ bowtie2bed.pl - convert BAM/SAM or MAP formatted files to BED format
 
 =head1 SYNOPSIS
 
-perl -w bowtie2bed.pl --input=<healthy.txt> --output=<more_than1.txt> [--verbose --help]
+perl -w bowtie2bed.pl --input=accepte_hits.bam --output=sample.bed.gz [--verbose --help]
 
  Required arguments:
     --input | -i       path to input SAM/BAM/MAP file
