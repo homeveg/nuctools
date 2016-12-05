@@ -27,49 +27,55 @@ This is an example of profiling a "test.bed" file using NucTools. The testing BE
 in the "test" directory. More details are stated in the INSTRUCTION section.
 
 1. Obtaining NucTools package:
+   
         $ git clone https://github.com/homeveg/nuctools.git NucTools
-
+   
 2. Installing NucTools:
         the NucTools package does not require installation. It is a collection of individual Perl scripts which can be executed individually.
 
 3. Generate a genome annotation table using provided R script:
+   
         $ Rscript misc/LoadAnnotation.BioMart.R
 
 4. Prepare BED files from BAM files with external application (optionally) 
     1. merge multiple replicates to one BAM file and sort by reads name:
-    
-        $ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam
-    2. converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:
-    
-        $ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
+   
+        $ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam \ 
+        /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam
         
+    2. converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:
+   
+        $ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
         $ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz > /Path_to_folder_with/BED/test_sorted.bed.gz
 
 5. Running NucTools:
     1. Extend single-end reads to the average DNA fragment size
-        
+   
         $ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz -fL 147
         
     2. Extract individual chromosomes from whole genome BED
-    
+   
         $ extract_chr_bed.pl -in test.ext.bed.gz -out test -d /Path_to_folder_with/BED/ -p chr 
         
     3. Convert all BED files to occupancy OCC files averaging nucleosomes occupancy values over the window of size 10
-    
+   
         $ bed2occupancy_average.pl -in /Path_to_folder_with/BED/ -odir /Path_to_folder_with/OCC -dir -use -w 10
         
     4. Calculate aggregate profiles and aligned occupancy matrices for each chromosome individually
     
-        $ aggregate_profile.pl -reg genome_annotation.tab -idC 0 -chrC 4 --strC 7 -sC 8 -eC 9 -pbN -lsN -lS <SeqLibSize> -chr 1 -al /Path_to_folder_with/OCC/chr1.test.occ_matrix -av /Path_to_folder_with/OCC/chr1.test.aggregate -in /Path_to_folder_with/OCC/chr1.test.w10.occ.gz -upD 1000 -downD 1000
+        $ aggregate_profile.pl -reg genome_annotation.tab -idC 0 -chrC 4 --strC 7 -sC 8 -eC 9 -pbN -lsN -lS <SeqLibSize> \
+        -chr 1 -al /Path_to_folder_with/OCC/chr1.test.occ_matrix -av /Path_to_folder_with/OCC/chr1.test.aggregate \
+        -in /Path_to_folder_with/OCC/chr1.test.w10.occ.gz -upD 1000 -downD 1000
         
     5. Paste together aggregate profiles of each chromosome in one file and add a header
        * Generate a header
-       
-        $ ls /Path_to_folder_with/OCC/*1000_1000.txt | perl -n -e 'if(/.*(chr.*)\.test.*/gm) { print $1, "\t"; }' | perl -n -e 'if( /(.*)\t$/g )  { print $1}' > /Path_to_folder_with/OCC/test.all.occ.txt
+   
+        $ ls /Path_to_folder_with/OCC/*1000_1000.txt | perl -n -e 'if(/.*(chr.*)\.test.*/gm) { print $1, "\t"; }' | \
+        perl -n -e 'if( /(.*)\t$/g )  { print $1}' > /Path_to_folder_with/OCC/test.all.occ.txt
         $ echo "" >> /Path_to_folder_with/OCC/test.all.occ.txt
         
        * paste all aggregate profiles to one file
-       
+   
         $ paste /Path_to_folder_with/OCC/*1000_1000.txt >> /Path_to_folder_with/OCC/test.all.occ.txt
 
 6. Optionally: 
