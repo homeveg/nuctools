@@ -2,7 +2,7 @@
 
 =head1 NAME
 
-calc_fragment_length.pl -  Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length
+ calc_fragment_length.pl -  Estimates mean fragment length for a single-emd sequencing library
 
 =head1 SYNOPSIS
 perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt> 
@@ -310,7 +310,7 @@ my @output_array=distogram(\@sorted_plus_starts, \@sorted_minus_ends, $delta);
 print STDERR "- saving resuts to $out_path1...";
 
 # open pipe to Gzip or open text file for writing
-my $OUT_FHs = open ">$out_path1" or die "Can't open $out_path1 for writing: $!\n";
+open my $OUT_FHs, '>' , $out_path1 or die "Can't open $out_path1 for writing: $!\n";
 print $OUT_FHs join("\n", @output_array);
 close ($OUT_FHs);
 print STDERR "done\n\n";
