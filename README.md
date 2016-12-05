@@ -114,6 +114,101 @@ NucTools bed2occupancy_average.pl scritp generates 2 types of the output. The fi
 
 
 -------------------------------------------------------------------
+## NucTools scripts
+
+### Initial data transformation
+
+   * ### bowtie2bed.pl
+   takes as an input standard SAM, BAM or MAP file and converts to the gzip-compressed BED file. The programm require samtools installed in PATH to be able to work with BAM files
+   
+        $ perl -w bowtie2bed.pl --input=accepte_hits.bam --output=sample.bed.gz [--verbose --help]
+   
+   * ### extend_SE_reads.pl
+   Extends single-end reads by the user-defined value of the average DNA fragment length. Script works with compressed or uncompressed BED files and save output as compress *.BED.GZ
+   
+        $ perl -w extend_SE_reads.pl -in <in.bed> -out <out.bed> -fL <fragment length> \
+        [-cC <column Nr.> -sC <column Nr.> -eC <column Nr.> -strC <column Nr.> ] [--help] 
+   
+   * ### extend_PE_reads.pl
+   Takes as an input BED file with mapped paired-end reads (two lines per paired read) sorted according to the read name and reformat it by creating a smaller BED file with one line per nucleosome in the following format: (1) chromosome, (2) nucleosome start, (3) nucleosome end, (4) nucleosome length
+    
+        $ perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--help] 
+   
+   * ### calc_fragment_length.pl
+   Estimates mean fragment length for a single-emd sequencing (can be used for ssingle end reads extention)
+    
+        $ perl -w perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt> [--delta=<N> --apply_filter \
+        --filtering_threshold=<N> --pile=<N> --fix_pile_size ] [--chromosome_col=<column Nr.> --start_col=<column Nr.> \
+        --end_col=<column Nr.> --strand_col=<column Nr.> --help]
+   
+   * ### extract_chr_bed.pl
+   Splits whole genome BED file with mapped reads into smaller BED files per each chromosome
+    
+        $ perl -w extract_chr_bed.pl -in all_data.bed.gz -out output_name_template -p [<pattern>] [--help] 
+   
+   * ### bed2occupancy_average.pl
+   Calculates genome-wide nucleosome occupancy, based on the BED file with sequencing reads. It converts BED files for all or specified chromosomes. The running window occupancy file (*.OCC) is a text file containing normalized reads frequency distribution along each chromosome in the running window.
+    
+        $ perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> \
+        [--outdir=<DIR_WITH_OCC> --chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> \
+        --strand_col=<column Nr.> --window=<running window size> --consider_strand --ConvertAllInDir --help]
+   
+
+### Core scripts
+
+   * ### aggregate_profile.pl
+   Calculates aggregate profile of sequencing read density around genomic regions. As an input it utilze a tab-delimited text file or BED file with coordinates of genomic features (promoters, enhancers, chromatin domains, TF binding sites, etc), and the OCC files with continuous chromosome-wide occupancy (nucleosome occupancy, TF distribution, etc). Calculates normalized occupancy profiles for each of the features, as well as the aggregate profile representing the average occupancy centred at the middle of the feature
+    
+        $ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--expression=<gene_expression.rpkm>] \ 
+        --aligned=<output.aligned.tab.gz> --average_aligned=<output.aggregare.txt> \ 
+        [--path2log=<AggregateProfile.log> --region_start_column=<column Nr.> --region_end_column=<column Nr.> \
+        --strand_column=<column Nr.> --chromosome_col=<column Nr.> --GeneId_column=<column Nr.> \
+        --Expression_columnID=<column Nr.> --Methylation_columnID=<column Nr.> --Methylation_columnID2=<column Nr.> \
+        --upstream_delta=<column Nr.> --downstream_delta==<column Nr.> --upper_threshold=<column Nr.> --lower_threshold=<column Nr.> \
+        --Methylation_threshold=<value|range_start-range_end> --overlap=<length> --library_size=<Nr.> \
+        --remove_minus_strand | --ignore_strand | --fixed_strand=[plus|minus] --invert_strand --input_occ --score --dont_save_aligned \
+        --Cut_tail --chromosome=chrN --AgregateProfile --GeneLengthNorm --LibsizeNorm --PerBaseNorm --useCentre \
+        --use_default --verbose --help ]
+
+   * ### average_replicates.pl
+   Calculates the average occupancy profile and standard deviation based on several replicate occupancy profiles from the working directory and save resulting table, including input occupancy data for individual files. Input *.occ files can be flat or compressed. Resulting extended occupancy file will be saved compressed
+    
+        $ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to results file> --coordsCol=0 \
+        --occupCol=1 --pattern="occ.gz" --printData --sum [--help]  
+   
+   * ### calc_fragment_length.pl
+   Estimates mean fragment length for a single-emd sequencing library
+    
+        $ perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt> \
+        [--delta=<N> --apply_filter --filtering_threshold=<N> --pile=<N> --fix_pile_size ] \ 
+        [--chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --help]
+   
+   * ### nucleosome_repeat_length.pl
+   Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length
+     
+        $ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
+        [--delta=<N> --apply_filter --filtering_threshold=<N> --pile=<N> --fix_pile_size ] \
+        [--chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --help]
+   
+   * ### stable_nucs_replicates.pl
+   Finds stable and fussy nucleosomes using all replicates for the same experimental condition
+     
+        $ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed> --chromosome=chr1 \
+        [-coordsCol=0 -occupCol=2 -StableThreshold=0.5 --printData ] [--help] 
+   
+   
+### Vizualization and additional scripts
+
+   * ### LoadAnnotation.BioMart.R
+   R script to retrieve genes annotation from EnsEMBL using Bioconductor BioMart package. Genes annotation table, particulary TSS/TTS coordinates, chromosomes and strand inforamtion is used with aggregate_profile.pl as a genomic features table.
+   
+   * ### NRL.loess.estimation.R
+   Peak detection R script to estimate NRL based on nucleosome_repeat_length.pl output.
+   
+   * ### CMB - Cluster Maps Builder
+   Aggregate profile and aligned occupancy matrix visualizer. MatLab-based stand-alown GUI application, compiled to run on MacOS X
+
+-------------------------------------------------------------------
 ## Additional information
 
 Additional information, publications references and short description of each script from the toolbox can be found here:
@@ -121,7 +216,7 @@ Additional information, publications references and short description of each sc
 - https://homeveg.github.io/nuctools/ (GitHub pages)
 
 **PLEASE NOTE**:
-*we are currently preparing manuscript and will add here more information, usage instruction and test data set soon.
+*we are currently preparing a manuscript and will add here more information, usage instruction and test data set soon.
 The project is under development now.*
 
 ### Planned modifications
