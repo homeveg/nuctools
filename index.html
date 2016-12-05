@@ -25,7 +25,7 @@
 <h2>
 <a id="nuctools-is-a-software-package-for-analysis-of-chromatin-feature-occupancy-profiles-from-high-throughput-sequencing-data" class="anchor" href="#nuctools-is-a-software-package-for-analysis-of-chromatin-feature-occupancy-profiles-from-high-throughput-sequencing-data" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data</h2>
 
-<p>Recent advancements in high-throughput sequencing methods create a vast amount of data in which numerous chromatin features are mapped along the genome. The results are frequently analysed by creating binarized data sets that link the presence/absence of a given readout to specific genomic loci. It is currently a challenge in the field to cope with continuous distributions of deep sequencing chromatin readouts, and to integrate the different types of datasets to reveal linkages between them. Here we introduce the NucTools suite of Perl scripts and a stand-alone visualization program for a nucleosome-centred downstream analysis of deep sequencing data. NucTools accounts for the continuous distribution of nucleosome occupancy. Furthermore, it is useful to associate nucleosome occupancy with other chromatin features like transcription factor binding, histone modifications or DNA methylation.</p>
+<p>Recent advancements in high-throughput sequencing methods create a vast amount of data in which numerous chromatin features are mapped along the genome. The results are frequently analysed by creating binarized data sets that link the presence/absence of a given readout to specific genomic loci. It is currently a challenge in the field to cope with continuous distributions of deep sequencing chromatin readouts, and to integrate the different types of datasets to reveal linkages between them. Here we introduce the NucTools suite of Perl scripts and a stand-alone visualisation program for a nucleosome-centred downstream analysis of deep sequencing data. NucTools accounts for the continuous distribution of nucleosome occupancy. Furthermore, it is useful to associate nucleosome occupancy with other chromatin features like transcription factor binding, histone modifications or DNA methylation.</p>
 
 <hr>
 
@@ -54,63 +54,69 @@ Fedora release 22 w/ Perl v5.20.3) and Macbook Pro laptops (MAC OSX 10.11 w/ XCO
 in the "test" directory. More details are stated in the INSTRUCTION section.</p>
 
 <ol>
-<li><p>Obtaining NucTools package:</p>
-<pre><code>$ git clone https://github.com/homeveg/nuctools.git NucTools</code></pre>
-</li>
+<li><p>Obtaining NucTools package:
+    $ git clone <a href="https://github.com/homeveg/nuctools.git">https://github.com/homeveg/nuctools.git</a> NucTools</p></li>
 <li><p>Installing NucTools:
-The NucTools package does not require installation. It is a collection of individual Perl scripts which can be executed individually.</p></li>
-<li>
-<p>Generate a genome annotation table using providing R script:</p>
-<pre><code>$ Rscript misc/LoadAnnotation.BioMart.R</code></pre>
-</li>
+    the NucTools package does not require installation. It is a collection of individual Perl scripts which can be executed individually.</p></li>
+<li><p>Generate a genome annotation table using provided R script:
+    $ Rscript misc/LoadAnnotation.BioMart.R</p></li>
 <li>
 <p>Prepare BED files from BAM files with external application (optionally) </p>
+
 <ol>
 <li>
-<p>merge multiple replicates to one BAM file and sort by reads name:  </p>
+<p>merge multiple replicates to one BAM file and sort by reads name:</p>
 
-<pre><code>$ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam</code></pre>
+<p>$ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam</p>
 </li>
 <li>
-<p>converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:  </p>
-<pre><code>$ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz</code></pre>
-<pre><code>$ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz &gt; /Path_to_folder_with/BED/test_sorted.bed.gz</code></pre>
+<p>converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:</p>
+
+<p>$ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose &gt; /Path_to_folder_with/BED/test_sorted.bed.gz</p>
+
+<p>$ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz &gt; /Path_to_folder_with/BED/test_sorted.bed.gz</p>
 </li>
 </ol>
 </li>
 <li>
-<p>Running NucTools: </p>
+<p>Running NucTools:</p>
 
 <ol>
 <li>
-<p>Extend single-end reads to the average DNA fragment size (100):  </p>
-<pre><code>$ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz</code></pre>
+<p>Extend single-end reads to the average DNA fragment size</p>
+
+<p>$ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz -fL 147</p>
 </li>
 <li>
-<p>Extract ndividual chromosomes from whole genome BED:  </p>
-<pre><code>$ extract_chr_bed.pl -in test.ext.bed.gz -out test -d /Path_to_folder_with/BED/ -p chr</code></pre>
+<p>Extract individual chromosomes from whole genome BED</p>
+
+<p>$ extract_chr_bed.pl -in test.ext.bed.gz -out test -d /Path_to_folder_with/BED/ -p chr </p>
 </li>
 <li>
-<p>Convert all BED files to occupancy OCC files avereging nucleosomes occupancy values over the window of size 10:  </p>
-<pre><code>$ bed2occupancy_average.pl -in /Path_to_folder_with/BED/ -odir /Path_to_folder_with/OCC -dir -use -w 10</code></pre>
+<p>Convert all BED files to occupancy OCC files averaging nucleosomes occupancy values over the window of size 10</p>
+
+<p>$ bed2occupancy_average.pl -in /Path_to_folder_with/BED/ -odir /Path_to_folder_with/OCC -dir -use -w 10</p>
 </li>
 <li>
-<p>Calculate aggregate profiles and aligned occupancy matrices for each chromosome individually:  </p>
-<pre><code>$ aggregate_profile.pl -reg genome_annotation.tab -idC 0 -chrC 4 --strC 7 -sC 8 -eC 9 -pbN -lsN -lS  -chr 1 -al /Path_to_folder_with/OCC/chr1.test.occ_matrix -av /Path_to_folder_with/OCC/chr1.test.aggregate -in /Path_to_folder_with/OCC/chr1.test.w10.occ.gz -upD 1000 -downD 1000</code></pre>
+<p>Calculate aggregate profiles and aligned occupancy matrices for each chromosome individually</p>
+
+<p>$ aggregate_profile.pl -reg genome_annotation.tab -idC 0 -chrC 4 --strC 7 -sC 8 -eC 9 -pbN -lsN -lS  -chr 1 -al /Path_to_folder_with/OCC/chr1.test.occ_matrix -av /Path_to_folder_with/OCC/chr1.test.aggregate -in /Path_to_folder_with/OCC/chr1.test.w10.occ.gz -upD 1000 -downD 1000</p>
 </li>
 <li>
 <p>Paste together aggregate profiles of each chromosome in one file and add a header</p>
+
 <ul>
-<li>Generate a header:<br>
-</li>
+<li>Generate a header</li>
 </ul>
-<pre><code>$ ls /Path_to_folder_with/OCC/<em>1000_1000.txt | perl -n -e 'if(/.</em>(chr.<em>).test.</em>/gm) { print $1, "\t"; }' | perl -n -e 'if( /(.*)\t$/g )  { print $1}' &gt; /Path_to_folder_with/OCC/test.all.occ.txt
-$ echo "" &gt;&gt; /Path_to_folder_with/OCC/test.all.occ.txt</code></pre>
+
+<p>$ ls /Path_to_folder_with/OCC/<em>1000_1000.txt | perl -n -e 'if(/.</em>(chr.<em>).test.</em>/gm) { print $1, "\t"; }' | perl -n -e 'if( /(.*)\t$/g )  { print $1}' &gt; /Path_to_folder_with/OCC/test.all.occ.txt
+$ echo "" &gt;&gt; /Path_to_folder_with/OCC/test.all.occ.txt</p>
+
 <ul>
-<li>paste all aggregate profiles to one file<br>
-</li>
+<li>paste all aggregate profiles to one file</li>
 </ul>
-<pre><code>$ paste /Path_to_folder_with/OCC/*1000_1000.txt &gt;&gt; /Path_to_folder_with/OCC/test.all.occ.txt</code></pre>
+
+<p>$ paste /Path_to_folder_with/OCC/*1000_1000.txt &gt;&gt; /Path_to_folder_with/OCC/test.all.occ.txt</p>
 </li>
 </ol>
 </li>
@@ -132,7 +138,7 @@ NucTools utilize whole genome <a href="https://genome.ucsc.edu/FAQ/FAQformat#for
 
 <ul>
 <li>
-<a href="http://samtools.sourceforge.net/">SamTools</a> - merge and sort BAM files</li>
+<a href="http://samtools.sourceforge.net/">SamTools</a> - merge, sort and convert BAM files</li>
 <li>
 <a href="http://bedtools.readthedocs.io/en/latest/index.html">bedtools</a> - convert BAM to BED</li>
 <li>
@@ -144,13 +150,13 @@ NucTools utilize whole genome <a href="https://genome.ucsc.edu/FAQ/FAQformat#for
 <h3>
 <a id="running-nuctools" class="anchor" href="#running-nuctools" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Running NucTools</h3>
 
-<p>One can devide the NucTools pipeline to 3 major steps: (1) prepare input OCC files (2) calculate aggregate profiles and alligned occupancy matrixes (3) followup analysis and results visualization. 
+<p>One can divide the NucTools pipeline to 3 major steps: (1) prepare input OCC files (2) calculate aggregate profiles and alligned occupancy matrixes (3) followup analysis and results visualization. 
 For the moment we don't have a wrapper to run all 3 steps automatically so, each step should be executed separately and, in turn, consists of several intermediate steps.</p>
 
 <p>We will provide a testing BAM file, command line bash file, and example output in ./test. Below is a set of commands that runs "test.bam" through NucTools pipeline:</p>
 
 <pre><code>    $ samtools sort -n ./test/test_sorted.bam ./test/test.bam
-    $ bowtie2bed.pl -i ./test/test_sorted.bam --verbose > ./test/test_sorted.bed.gz
+    $ bowtie2bed.pl -i ./test/test_sorted.bam --verbose &gt; ./test/test_sorted.bed.gz
     $ extend_SE_reads.pl -in ./test/test.bed -out ./test/test.ext.bed.gz
     $ extract_chr_bed.pl -in ./test/test.ext.bed.gz -out test/BED -d ./test -p chr 
     $ bed2occupancy_average.pl -in ./test/BED -odir ./test/OCC -dir -use -w 10
@@ -169,6 +175,146 @@ For the moment we don't have a wrapper to run all 3 steps automatically so, each
 <hr>
 
 <h2>
+<a id="nuctools-scripts" class="anchor" href="#nuctools-scripts" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>NucTools scripts</h2>
+
+<h3>
+<a id="initial-data-transformation" class="anchor" href="#initial-data-transformation" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Initial data transformation</h3>
+
+<ul>
+<li>
+<h3>
+<a id="bowtie2bedpl" class="anchor" href="#bowtie2bedpl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>bowtie2bed.pl</h3>
+
+<p>takes as an input standard SAM, BAM or MAP file and converts to the gzip-compressed BED file. The programm require samtools installed in PATH to be able to work with BAM files</p>
+
+<pre><code>$ perl -w bowtie2bed.pl --input=accepte_hits.bam --output=sample.bed.gz [--verbose --help]
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="extend_se_readspl" class="anchor" href="#extend_se_readspl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>extend_SE_reads.pl</h3>
+
+<p>Extends single-end reads by the user-defined value of the average DNA fragment length. Script works with compressed or uncompressed BED files and save output as compress *.BED.GZ</p>
+
+<pre><code>$ perl -w extend_SE_reads.pl -in &lt;in.bed&gt; -out &lt;out.bed&gt; -fL &lt;fragment length&gt; \
+[-cC &lt;column Nr.&gt; -sC &lt;column Nr.&gt; -eC &lt;column Nr.&gt; -strC &lt;column Nr.&gt; ] [--help] 
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="extend_pe_readspl" class="anchor" href="#extend_pe_readspl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>extend_PE_reads.pl</h3>
+
+<p>Takes as an input BED file with mapped paired-end reads (two lines per paired read) sorted according to the read name and reformat it by creating a smaller BED file with one line per nucleosome in the following format: (1) chromosome, (2) nucleosome start, (3) nucleosome end, (4) nucleosome length</p>
+
+<pre><code>$ perl -w extend_PE_reads.pl -in &lt;in.bed&gt; -out &lt;out.bed&gt; [--help] 
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="extract_chr_bedpl" class="anchor" href="#extract_chr_bedpl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>extract_chr_bed.pl</h3>
+
+<p>Splits whole genome BED file with mapped reads into smaller BED files per each chromosome</p>
+
+<pre><code>$ perl -w extract_chr_bed.pl -in all_data.bed.gz -out output_name_template -p [&lt;pattern&gt;] [--help] 
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="bed2occupancy_averagepl" class="anchor" href="#bed2occupancy_averagepl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>bed2occupancy_average.pl</h3>
+
+<p>Calculates genome-wide nucleosome occupancy, based on the BED file with sequencing reads. It converts BED files for all or specified chromosomes. The running window occupancy file (*.OCC) is a text file containing normalized reads frequency distribution along each chromosome in the running window.</p>
+
+<pre><code>$ perl -w bed2occupancy_average.pl --input=&lt;in.bed.gz&gt; --output=&lt;out.occ.gz&gt; \
+[--outdir=&lt;DIR_WITH_OCC&gt; --chromosome_col=&lt;column Nr.&gt; --start_col=&lt;column Nr.&gt; --end_col=&lt;column Nr.&gt; \
+--strand_col=&lt;column Nr.&gt; --window=&lt;running window size&gt; --consider_strand --ConvertAllInDir --help]
+</code></pre>
+</li>
+</ul>
+
+<h3>
+<a id="core-scripts" class="anchor" href="#core-scripts" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Core scripts</h3>
+
+<ul>
+<li>
+<h3>
+<a id="aggregate_profilepl" class="anchor" href="#aggregate_profilepl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>aggregate_profile.pl</h3>
+
+<p>Calculates aggregate profile of sequencing read density around genomic regions. As an input it utilze a tab-delimited text file or BED file with coordinates of genomic features (promoters, enhancers, chromatin domains, TF binding sites, etc), and the OCC files with continuous chromosome-wide occupancy (nucleosome occupancy, TF distribution, etc). Calculates normalized occupancy profiles for each of the features, as well as the aggregate profile representing the average occupancy centred at the middle of the feature</p>
+
+<pre><code>$ perl -w aggregate_profile.pl --input=&lt;in.occ.gz&gt; --regions=&lt;annotations.txt&gt; [--verbose --help ]
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="average_replicatespl" class="anchor" href="#average_replicatespl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>average_replicates.pl</h3>
+
+<p>Calculates the average occupancy profile and standard deviation based on several replicate occupancy profiles from the working directory and save resulting table, including input occupancy data for individual files. Input *.occ files can be flat or compressed. Resulting extended occupancy file will be saved compressed</p>
+
+<pre><code>$ perl -w average_replicates.pl --dir=&lt;path to working dir&gt; --output=&lt;path to results file&gt; --coordsCol=0 \
+--occupCol=1 --pattern="occ.gz" --printData --sum [--help]  
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="calc_fragment_lengthpl" class="anchor" href="#calc_fragment_lengthpl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>calc_fragment_length.pl</h3>
+
+<p>Estimates mean fragment length for a single-end sequencing library</p>
+
+<pre><code>$ perl -w calc_fragment_length.pl --input=&lt;in.bed&gt; --output=&lt;filtered.txt&gt; \
+[--delta=&lt;N&gt; --apply_filter --filtering_threshold=&lt;N&gt; --pile=&lt;N&gt; --fix_pile_size ] \ 
+[--chromosome_col=&lt;column Nr.&gt; --start_col=&lt;column Nr.&gt; --end_col=&lt;column Nr.&gt; --strand_col=&lt;column Nr.&gt; --help]
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="nucleosome_repeat_lengthpl" class="anchor" href="#nucleosome_repeat_lengthpl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>nucleosome_repeat_length.pl</h3>
+
+<p>Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length</p>
+
+<pre><code>$ perl -w nucleosome_repeat_length.pl --input=&lt;in.bed&gt; --output=&lt;filtered.txt&gt; \
+[--delta=&lt;N&gt; --apply_filter --filtering_threshold=&lt;N&gt; --pile=&lt;N&gt; --fix_pile_size ] \
+[--chromosome_col=&lt;column Nr.&gt; --start_col=&lt;column Nr.&gt; --end_col=&lt;column Nr.&gt; --strand_col=&lt;column Nr.&gt; --help]
+</code></pre>
+</li>
+<li>
+<h3>
+<a id="stable_nucs_replicatespl" class="anchor" href="#stable_nucs_replicatespl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>stable_nucs_replicates.pl</h3>
+
+<p>Finds stable and fussy nucleosomes using all replicates for the same experimental condition</p>
+
+<pre><code>$ perl -w stable_nucs_replicates.pl --input=&lt;path to input DIR&gt; --output=&lt;out.bed&gt; --chromosome=chr1 \
+[-coordsCol=0 -occupCol=2 -StableThreshold=0.5 --printData ] [--help] 
+</code></pre>
+</li>
+</ul>
+
+<h3>
+<a id="vizualization-and-additional-scripts" class="anchor" href="#vizualization-and-additional-scripts" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Vizualization and additional scripts</h3>
+
+<ul>
+<li>
+<h3>
+<a id="loadannotationbiomartr" class="anchor" href="#loadannotationbiomartr" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>LoadAnnotation.BioMart.R</h3>
+
+<p>R script to retrieve genes annotation from EnsEMBL using Bioconductor BioMart package. Genes annotation table, particulary TSS/TTS coordinates, chromosomes and strand inforamtion is used with aggregate_profile.pl as a genomic features table.</p>
+</li>
+<li>
+<h3>
+<a id="nrlloessestimationr" class="anchor" href="#nrlloessestimationr" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>NRL.loess.estimation.R</h3>
+
+<p>Peak detection R script to estimate NRL based on nucleosome_repeat_length.pl output.</p>
+</li>
+<li>
+<h3>
+<a id="cmb---cluster-maps-builder" class="anchor" href="#cmb---cluster-maps-builder" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>CMB - Cluster Maps Builder</h3>
+
+<p>Aggregate profile and aligned occupancy matrix visualizer. MatLab-based stand-alown GUI application, compiled to run on MacOS X</p>
+</li>
+</ul>
+
+<hr>
+
+<h2>
 <a id="additional-information" class="anchor" href="#additional-information" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Additional information</h2>
 
 <p>Additional information, publications references and short description of each script from the toolbox can be found here:</p>
@@ -181,7 +327,7 @@ For the moment we don't have a wrapper to run all 3 steps automatically so, each
 </ul>
 
 <p><strong>PLEASE NOTE</strong>:
-<em>we are currently preparing manuscript and will add here more information, usage instruction and test data set soon.
+<em>we are currently preparing a manuscript and will add here more information, usage instruction and test data set soon.
 The project is under development now.</em></p>
 
 <h3>
@@ -205,6 +351,16 @@ The project is under development now.</em></p>
 <li>NucTools automated package installation with make</li>
 </ul>
 
+<h2>
+<a id="major-changes-in-porogres" class="anchor" href="#major-changes-in-porogres" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Major changes (in porogres):</h2>
+
+<ul>
+<li>GZIP support implementation - all input files can be compressed and all newly created output files saved as *.gz</li>
+<li>Handle gapped occupancy files: to save space and memory remove all regions/bases with 0 counts</li>
+<li>implement POD documentation (with Pod::Usage)</li>
+<li>command line parametrs allow long and short options (with Getopt::Long::GetOptions)</li>
+</ul>
+
 <h3>
 <a id="developers" class="anchor" href="#developers" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>Developers:</h3>
 
@@ -221,5 +377,3 @@ The project is under development now.</em></p>
   
   </body>
 </html>
-Contact GitHub API Training Shop Blog About
-© 2016 GitHub, Inc. Terms Privacy Security Status Help
