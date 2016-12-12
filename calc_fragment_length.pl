@@ -2,7 +2,7 @@
 
 =head1 NAME
 
- calc_fragment_length.pl -  Estimates mean fragment length for a single-emd sequencing library
+calc_fragment_length.pl -  Calculates frequency of nucleosome-nucleosome distances to determine the nucleosome repeat length
 
 =head1 SYNOPSIS
 perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt> 
@@ -26,6 +26,7 @@ perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt>
     --delta | -d                  maximum distance from start of the origin nucleosome to the last in calculations (default: 400)
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
+    --pile_delta | -dP            maximum distance between adjacent nucleosome starts to consider as one pile (default: 0)
    
    flags:
     --apply_filter | -f           apply --filtering_threshold to the data
@@ -101,6 +102,7 @@ use List::Util qw(first);
 
 # Default parametrs
 my $delta = 400;
+my $pile_delta = 0;
 my $pile = 1;
 my $in_file; 
 my $out_path1; 
@@ -132,11 +134,12 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'delta|d=i' => \$delta,
 	'pile|p=i'   => \$pile,
 	'filtering_threshold|t=i'   => \$piles_filtering_threshold,
+	'pile_delta|dP=i'   => \$pile_delta,
 	
-	'start_col|sC=s' => \$start_col,
-	'end_col|eC=s'   => \$end_col,
-	'strand_col|str=s' => \$strand_col,
-	'chromosome_col|chr=s'   => \$chromosome_col,
+	'start_col|sC=i' => \$start_col,
+	'end_col|eC=i'   => \$end_col,
+	'strand_col|str=i' => \$strand_col,
+	'chromosome_col|chr=i'   => \$chromosome_col,
 
 	'fix_pile_size|s' => \$fix_pile_size,
 	'apply_filter|f'   => \$apply_filter_flag,
@@ -158,6 +161,7 @@ print STDERR "delta: ",$delta, "\n";
 print STDERR "pile: $pile - ";
 if ( defined $fix_pile_size) { print STDERR "select only nucleosomes in piles of fixed size\n"; }
 else { print STDERR "use arbitrary pile size\n"; }
+print STDERR "pile delta: ",$pile_delta, "\n";
 
 print STDERR "filtering threshold: $piles_filtering_threshold - ";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
@@ -296,10 +300,10 @@ if ($apply_filter_flag) {
 }
 
 if ($fix_pile_size ) {
-	print STDERR "select only piles of size $piles_filtering_threshold\n";
-	my @temp = local_pile_filter($piles_filtering_threshold, @sorted_plus_starts);
+	print STDERR "select only piles of size $pile\n";
+	my @temp = local_pile_filter($pile, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
-	@temp = local_pile_filter($piles_filtering_threshold, @sorted_minus_starts);
+	@temp = local_pile_filter($pile, @sorted_minus_starts);
 	@sorted_minus_starts = @temp;
 	undef @temp;
 }
@@ -310,7 +314,7 @@ my @output_array=distogram(\@sorted_plus_starts, \@sorted_minus_ends, $delta);
 print STDERR "- saving resuts to $out_path1...";
 
 # open pipe to Gzip or open text file for writing
-open my $OUT_FHs, '>' , $out_path1 or die "Can't open $out_path1 for writing: $!\n";
+open my $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
 print $OUT_FHs join("\n", @output_array);
 close ($OUT_FHs);
 print STDERR "done\n\n";
@@ -438,26 +442,26 @@ sub remove_unpiled {
 	my $pile_counter=0;
 
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
-	if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-	if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
-		push(@temp,$sorted_coords[$i]);
-		$pile_counter++;
-	}
-	elsif ($pile_counter < $pile) {
-		undef @temp;
-		$pile_counter=0;
-	}
-	elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
-		if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
-		undef @temp;
+		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
+		#if ($sorted_coords[$i-1] ~~ ($sorted_coords[$i]..$sorted_coords[$i]+$pile_delta ) ) {
+		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
 		}
-		else {
-		push @only_piled, @temp;
-		undef @temp;
+		elsif ($pile_counter < $pile) {
+			undef @temp;
+			$pile_counter=0;
 		}
-		$pile_counter=0;
-	}
-
+		elsif ($#temp>0) {
+			if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
+			undef @temp;
+			}
+			else {
+			push @only_piled, @temp;
+			undef @temp;
+			}
+			$pile_counter=0;
+		}
 	}
 	my @results = grep /\S/, @only_piled;
 	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
@@ -474,19 +478,17 @@ sub filter_by_threshold {
 	
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
 		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-		if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
-		push(@temp,$sorted_coords[$i]);
-		$pile_counter++;
-		}
-		elsif ($pile_counter >= $piles_filtering_threshold) {
-		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
-		undef @temp;
-		$pile_counter=0;
-		}
-		elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
-		push @piled_under_threshold, @temp;
-		undef @temp;
-		$pile_counter=0;
+		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
+		} elsif ($pile_counter >= $piles_filtering_threshold) {
+			push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
+			undef @temp;
+			$pile_counter=0;
+		} elsif ($#temp>0) {
+			push @piled_under_threshold, @temp;
+			undef @temp;
+			$pile_counter=0;
 		}
 	
 	}
@@ -506,19 +508,17 @@ sub local_pile_filter {
 	
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
 		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-		if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
-		push(@temp,$sorted_coords[$i]);
-		$pile_counter++;
-		}
-		elsif ($pile_counter >= $piles_filtering_threshold) {
-		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
-		undef @temp;
-		$pile_counter=0;
-		}
-		elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
-		push @piled_under_threshold, @temp;
-		undef @temp;
-		$pile_counter=0;
+		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
+		} elsif ($pile_counter >= $piles_filtering_threshold) {
+			push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
+			undef @temp;
+			$pile_counter=0;
+		} elsif ($#temp>0) {
+			push @piled_under_threshold, @temp;
+			undef @temp;
+			$pile_counter=0;
 		}
 	
 	}
@@ -575,7 +575,7 @@ sub distogram {
 		if ( $progress_counter == $i ) {
 			print STDERR ".";
 			$progress_counter+=$counter_step;
-			#last; # for testing
+			last; # for testing
 		}
 	}
 	my @results = grep /\S/, @output_array;
