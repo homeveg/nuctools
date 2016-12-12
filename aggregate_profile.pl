@@ -65,6 +65,8 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --GeneLengthNorm | -glN         normalize each profile to the region length (gene length)
     --LibsizeNorm | -lsN            perform sequencing library size normalization
     --PerBaseNorm | -pbN            compensate for the transcript length difference 
+
+    --gzip | -z                     compress the output
     --verbose'                      display additional run info
     --help|h'                       display detailed help
  
@@ -204,6 +206,7 @@ my $Expression_flag="excluded";
 
 my $run_log_path = "AggregateProfile.log";
 my $needsHelp;
+my $useGZ;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	# input files
@@ -252,6 +255,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'LibsizeNorm|lsN' => \$library_size_normalization,
 	'PerBaseNorm|pbN' => \$PerBaseNorm,
 	'verbose' => \$verbose,
+	'gzip|z' => \$useGZ,
 
 	'help|h'      => \$needsHelp
 );
@@ -326,6 +330,16 @@ print STDERR "replace reads by 0 downstream from region end: $Cut_tail\n";
 print STDERR "align regions at the center: $use_centre\n";
 
 print STDERR "======================================\n";
+
+# exit script if output files exist
+if ( -e $out_path1 ) {
+	print STDERR "output file $out_path1 is exists already! \nExiting\n";
+	exit;
+}
+elsif ( -e $out_path2 ) {
+	print STDERR "output file $out_path2 is exists already! \nExiting\n";
+	exit;
+}
 
 # read annotation file top
 my (@LIST_array,
@@ -861,9 +875,15 @@ if ($dont_save_aligned eq "no") {
 	
 	# open pipe to Gzip or open text file for writing
 	my $out_file = $out_path1;
-	$out_file =~ s/(.*)\.gz$/$1/;
-	my $gz_out_file = $out_file.".gz";
-	my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	my $OUT_FHs;
+	if ($useGZ) {
+		$out_file =~ s/(.*)\.gz$/$1/;
+		my $gz_out_file = $out_file.".gz";
+		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	}
+	else {
+		open $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
+	}
 
     print $OUT_FHs join("\n", @output_array),"\n";
     close ($OUT_FHs);

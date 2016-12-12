@@ -22,7 +22,9 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
  additional parameters
     --printData  | -d          print all input occupancy columns to the output file
     --StableThreshold   | -t   set threshold on relative error (St.Dev/Mean) to define stable nucleosomes (default: 0.5)
-	--help | -h                Help
+		
+	  --gzip | -z                compress the output
+	  --help | -h                Help
 	
  Example usage:
  
@@ -96,7 +98,7 @@ my %NormFactors;
 my $output;
 my $addData="no";
 
-
+my $useGZ;
 my $needsHelp;
 
 my $options_okay = &Getopt::Long::GetOptions(
@@ -109,7 +111,8 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'printData|d' => \$addData,
 	'StableThreshold|t=s' => \$StableThreshold,
-	
+	'gzip|z' => \$useGZ,
+
 	'help|h'      => \$needsHelp
 );
 
@@ -141,10 +144,16 @@ for (my $i=0; $i<=$#files; $i++) {
 
 
 # open pipe to Gzip or open text file for writing
-my $out_file = $output;
-$out_file =~ s/(.*)\.gz$/$1/;
-my $gz_out_file = $out_file.".gz";
-my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+  my ($gz_out_file,$out_file,$OUT_FHs);
+  $out_file = $output;
+	if ($useGZ) {
+		$out_file =~ s/(.*)\.gz$/$1/;
+		$gz_out_file = $out_file.".gz";
+		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	}
+	else {
+		open $OUT_FHs, '>', $output or die "Can't open $output for writing; $!\n";
+	}
 
 print STDERR "calcualting StDev, Variance and average.\nResults will be saved to $output\n";
 my $size = keys %occupancy;

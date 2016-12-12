@@ -24,6 +24,8 @@ perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--ou
     --ConvertAllInDir | -dir    set flag to convert all BED files in the directory to OCC
 	--outdir | -odir            path to output folder (save to input dir if not specified)
     --consider_strand | -use    consider strand when calculating occupancy
+
+    --gzip | -z                 compress the output
     --help | -h                 Help
     
  Example usage:
@@ -125,6 +127,7 @@ my $chromosome_col=0;
 my $running_window=100;
 my $region_start=0;
 my $region_end;
+my $useGZ;
 
 
 my $options_okay = &Getopt::Long::GetOptions(
@@ -143,6 +146,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'window|w=s'   => \$running_window,
 	'region_start|rs=s' => \$region_start,
 	'region_end|re=s'   => \$region_end,
+	'gzip|z' => \$useGZ,
 	
 	'help|h'      => \$needsHelp
 );
@@ -179,7 +183,7 @@ if (! $ConvertAllInDir) {
         $outfile = $infile;
         $outfile =~ s/(.*)\.bed(.gz)?$/$1\.w$running_window\.occ/;
 	}
-	Bed2Occup($infile, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag); } 
+	BED_2_OCC($infile, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag); } 
 elsif ($ConvertAllInDir) {
     # process each *.bed file in the folder
     my (%dir, @dir_list, @text_list);
@@ -191,12 +195,12 @@ elsif ($ConvertAllInDir) {
         if ($file =~ m/.*\.bed$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed$/$1\.w$running_window\.occ/;
-            Bed2Occup($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
+            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
         }
         if ($file =~ m/.*\.bed.gz$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed.gz$/$1\.w$running_window\.occ/;
-            Bed2Occup($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
+            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
         }
     }
 }
@@ -205,7 +209,7 @@ exit;
 
 #--------------------------------------------------------------------------
 
-sub Bed2Occup {
+sub BED_2_OCC {
     my ($infile_name, $outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag) = @_;
     
 	my $infile;
@@ -280,9 +284,16 @@ sub Bed2Occup {
 
 	# open pipe to Gzip or open text file for writing
 	my $out_file = $outfile;
-	$out_file =~ s/(.*)\.gz$/$1/;
-	my $gz_out_file = $out_file.".gz";
-	my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	my $OUT_FHs;
+	
+	if ($useGZ) {
+		$out_file =~ s/(.*)\.gz$/$1/;
+		my $gz_out_file = $out_file.".gz";
+		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	}
+	else {
+		open $OUT_FHs, '>', $outfile or die "Can't open $outfile for writing; $!\n";
+	}
 
     $timer2 = time();
  

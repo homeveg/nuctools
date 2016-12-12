@@ -26,6 +26,7 @@ perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt>
     --threshold2 | -t2          lower threshold (default: 0.5)
 	
     --verbose | -v              consider strand when calculating occupancy
+    --gzip | -z        compress the output
     --help | -h                 Help
     
  Example usage:
@@ -108,6 +109,7 @@ my $chromosome;
 my $windowSize=100;
 my $verbose;
 my $needsHelp;
+my $useGZ;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input1|i1=s' => \$input1,
@@ -124,6 +126,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'Col_signal|sC=s' => \$Col_signal,
 	'Col_coord|cC=s' => \$Col_coord,
 	'verbose|v=s'   => \$verbose,
+	'gzip|z' => \$useGZ,
 	
 	'help|h'      => \$needsHelp
 );
@@ -157,15 +160,24 @@ ReadFile($input2, 2, 1, $Col_coord, $Col_signal, \%occupancy);
 # open pipe to Gzip or open text file for writing
 my ($out_file,$gz_out_file, $OUT1_FHs, $OUT2_FHs);
 $out_file = $output1;
-$out_file =~ s/(.*)\.gz$/$1/;
-$gz_out_file = $out_file.".gz";
-$OUT1_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+if ($useGZ) {
+	$out_file =~ s/(.*)\.gz$/$1/;
+	$gz_out_file = $out_file.".gz";
+	$OUT1_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+}
+else {
+	open $OUT1_FHs, '>', $output1 or die "Can't open $output1 for writing; $!\n";
+}
 
 $out_file = $output2;
-$out_file =~ s/(.*)\.gz$/$1/;
-$gz_out_file = $out_file.".gz";
-$OUT2_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
-
+if ($useGZ) {
+	$out_file =~ s/(.*)\.gz$/$1/;
+	$gz_out_file = $out_file.".gz";
+	$OUT2_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+}
+else {
+	open $OUT2_FHs, '>', $output1 or die "Can't open $output1 for writing; $!\n";
+}
 
 print STDERR "\n======================\nstart filtering...";
 my $above_counter=0;

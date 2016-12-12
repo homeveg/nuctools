@@ -21,7 +21,8 @@ perl -w extend_SE_reads.pl -in <in.bed> -out <out.bed> -fL <fragment length> [-c
     --chromosome_col | -chrC   chromosome column Nr. (default: -chr 0)
  
  additional parameters   
-    --fragment | -fL   average DNA fragment length
+    --gzip | -z        compress the output
+    --fragment | -fL   average DNA fragment length (default: -fL 147)
 	--help | h                 Help
 	
  Example usage:
@@ -86,7 +87,7 @@ use IO::Compress::Gzip qw(gzip $GzipError) ;
 
 my $in_file;
 my $outfile;
-my $fragment_length = 100;
+my $fragment_length = 147;
 
 my $chr_id = 0;
 my $start_id = 1;
@@ -94,6 +95,7 @@ my $end_id = 2;
 my $strand_id = 5;
 
 my $needsHelp;
+my $useGZ;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$in_file,
@@ -104,7 +106,8 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'strand_col|strC=s' => \$strand_id,
 	'chromosome_col|chrC=s'   => \$chr_id,
 	'fragment|fL=s'   => \$fragment_length,
-	
+	'gzip|z' => \$useGZ,
+
 	'help|h'      => \$needsHelp
 );
 
@@ -112,11 +115,17 @@ my $options_okay = &Getopt::Long::GetOptions(
 &check_opts();
 
 # open pipe to Gzip or open text file for writing
-my $out_file = $outfile;
-$out_file =~ s/(.*)\.gz$/$1/;
-my $gz_out_file = $out_file.".gz";
-my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 
+my ($gz_out_file,$out_file,$OUT_FHs);
+$out_file = $outfile;
+  if ($useGZ) {
+	  $out_file =~ s/(.*)\.gz$/$1/;
+	  $gz_out_file = $out_file.".gz";
+	  $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+  }
+  else {
+	  open $OUT_FHs, '>', $outfile or die "Can't open $outfile for writing; $!\n";
+  }
 
 #------------------------------------------------------------------------------
 #read file with occupanicies

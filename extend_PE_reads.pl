@@ -14,6 +14,7 @@ perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--help]
     --output | -out    output table file name
 
  Options:
+    --gzip | -z        compress the output
 	--help | h                 Help
 	
  Example usage:
@@ -81,10 +82,12 @@ my $infile;
 my $outfile;
 
 my $needsHelp;
+my $useGZ;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
 	'output|out=s'   => \$outfile,
+	'gzip|z' => \$useGZ,
 	
 	'help|h'      => \$needsHelp
 );
@@ -93,10 +96,17 @@ my $options_okay = &Getopt::Long::GetOptions(
 &check_opts();
 
 # open pipe to Gzip or open text file for writing
-my $out_file = $outfile;
-$out_file =~ s/(.*)\.gz$/$1/;
-my $gz_out_file = $out_file.".gz";
-my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+my ($gz_out_file,$out_file,$OUT_FHs);
+$out_file = $outfile;
+  if ($useGZ) {
+	  $out_file =~ s/(.*)\.gz$/$1/;
+	  $gz_out_file = $out_file.".gz";
+	  $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+  }
+  else {
+	  open $OUT_FHs, '>', $outfile or die "Can't open $outfile for writing; $!\n";
+  }
+
 
 # open occupancy file
 my $inFH;

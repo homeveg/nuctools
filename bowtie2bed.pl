@@ -2,17 +2,18 @@
 
 =head1 NAME
 
-bowtie2bed.pl - convert BAM/SAM or MAP formatted files to BED format
+compare_two_conditions.pl - convert BAM/SAM or MAP formatted files to BED format
 
 =head1 SYNOPSIS
 
-perl -w bowtie2bed.pl --input=accepte_hits.bam --output=sample.bed.gz [--verbose --help]
+perl -w bowtie2bed.pl.pl --input=<healthy.txt> --output=<more_than1.txt> [--verbose --help]
 
  Required arguments:
     --input | -i       path to input SAM/BAM/MAP file
     --output | -o      path to output BED file (OCC.GZ)
 	
- Options:	
+ Options:
+    --gzip | -z        compress the output
     --verbose | -v     print BED output to STDOUT
     --help | -h        Help
     
@@ -80,10 +81,12 @@ use List::Util qw(sum);
 
 my ($infile,$outfile,$verbose);
 my $needsHelp;
+my $useGZ;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|i=s' => \$infile,
 	'output|o=s'   => \$outfile,
+	'gzip|z' => \$useGZ,
 	
 	'verbose'   => \$verbose,
 	'help|h'      => \$needsHelp
@@ -106,9 +109,14 @@ if ( ! $verbose) {
   }
     
   $out_file = $outfile;
-  $out_file =~ s/(.*)\.gz$/$1/;
-  $gz_out_file = $out_file.".gz";
-  $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	if ($useGZ) {
+		$out_file =~ s/(.*)\.gz$/$1/;
+		$gz_out_file = $out_file.".gz";
+		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	}
+	else {
+		open $OUT_FHs, '>', $outfile or die "Can't open $outfile for writing; $!\n";
+	}
 }
 
 # open SAM/MAP file or pipe to an input BAM file

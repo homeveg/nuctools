@@ -21,6 +21,8 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
 	  --pattern | -p     occupancy profile file name extension template (default: occ.gz)
     --printData | -d   print all input occupancy columns to the output file
     --sum | -s         print column with sum of all occupancies for each nucleotide
+		
+    --gzip | -z        compress the output
     --help | -h        Help
     
  Example usage:
@@ -38,7 +40,7 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
 
 =head2 average_replicates.pl
 
- average_replicates.pl calculates the average occupancy profile and standard deviation based on several replicate occupancy profiles from the working directory and save resulting table, including input occupancy data for individual files. Input *.occ files can be flat or compressed. Resulting extended occupancy file will be saved compressed 
+ extract_chr_bed.pl calculates the average occupancy profile and standard deviation based on several replicate occupancy profiles from the working directory and save resulting table, including input occupancy data for individual files. Input *.occ files can be flat or compressed. Resulting extended occupancy file will be saved compressed 
 
 =head1 AUTHORS
 
@@ -100,6 +102,7 @@ my $addData;
 my $printSum;
 
 my $needsHelp;
+my $useGZ;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'dir|i=s' => \$wd,
@@ -111,6 +114,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'printData|d' => \$addData,
 	'sum|s' => \$printSum,
+	'gzip|z' => \$useGZ,
 	
 	'help|h'      => \$needsHelp
 );
@@ -150,10 +154,17 @@ for (my $i=0; $i<=$#files; $i++) {
 print STDERR "calculating StDev, Variance, Sum and average.\nResults will be saved to $output\n";
 
 # open pipe to Gzip or open text file for writing
-my $out_file = $output;
-$out_file =~ s/(.*)\.gz$/$1/;
-my $gz_out_file = $out_file.".gz";
-my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+  my ($gz_out_file,$out_file,$OUT_FHs);
+  $out_file = $output;
+	if ($useGZ) {
+		$out_file =~ s/(.*)\.gz$/$1/;
+		$gz_out_file = $out_file.".gz";
+		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	}
+	else {
+		open $OUT_FHs, '>', $output or die "Can't open $output for writing; $!\n";
+	}
+
 
 if ($addData) {
 	if ($printSum) { print $OUT_FHs join("\t","position","Mean","Sum","stdev","Rel.Error", @names);   }
@@ -281,20 +292,20 @@ sub ReadFile {
         my @lines = split(/$regex_split_newline/o, $buffer);
         # process each line in zone file
         foreach my $line (@lines) {
-			if ($line =~ /^\D*\t.*/) { next; }
-			my @string;
-			push (@string, split("\t",$line));
-			my $pos = $string[$col_coords];
-			$pos+=0;
-			my $occup = $string[$col_occup];
-			$occup+=0;
-			foreach my $file (@names) {
-					if(! exists ( $occupancy_hashref->{$pos}->{$file} ) ) { $occupancy_hashref->{$pos}->{$file}=0; }
-			}
-			$occupancy_hashref->{$pos}->{$filename} =  $occup;
-			push(@all_occups,$occup);
-			undef @string;
-			$counter++;
+					if ($line =~ /^\D*\t.*/) { next; }
+					my @string;
+					push (@string, split("\t",$line));
+					my $pos = $string[$col_coords];
+					$pos+=0;
+					my $occup = $string[$col_occup];
+					$occup+=0;
+					foreach my $file (@names) {
+							if(! exists ( $occupancy_hashref->{$pos}->{$file} ) ) { $occupancy_hashref->{$pos}->{$file}=0; }
+					}
+					$occupancy_hashref->{$pos}->{$filename} =  $occup;
+					push(@all_occups,$occup);
+					undef @string;
+					$counter++;
         }
         $processed_memory_size += $n;
         $offset += $n;

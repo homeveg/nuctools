@@ -102,6 +102,7 @@ use Time::Local;
 my $delta = 400;
 my $pile = 1;
 my $piles_filtering_threshold=20;
+my $pile_delta = 5;
 
 my $in_file; 
 my $out_path1;
@@ -133,6 +134,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'delta|d=i' => \$delta,
 	'pile|p=i'   => \$pile,
+	'pile_delta|dP=i'   => \$pile_delta,
 	'filtering_threshold|t=i'   => \$piles_filtering_threshold,
 	
 	'start_col|sC=s' => \$start_col,
@@ -158,6 +160,7 @@ print STDERR "delta: ",$delta, "\n";
 print STDERR "pile: $pile\n";
 print STDERR "filtering threshold: $piles_filtering_threshold\n";
 if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"; }
+print STDERR "pile delta: ",$pile_delta, "\n";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
 print STDERR "======================================\n";
 
@@ -293,10 +296,10 @@ if ($apply_filter_flag) {
 }
 
 if ($fix_pile_size ) {
-	print STDERR "select only piles of size $piles_filtering_threshold\n";
-	my @temp = local_pile_filter($piles_filtering_threshold, @sorted_plus_starts);
+	print STDERR "select only piles of size $pile\n";
+	my @temp = local_pile_filter($pile, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
-	@temp = local_pile_filter($piles_filtering_threshold, @sorted_minus_starts);
+	@temp = local_pile_filter($pile, @sorted_minus_starts);
 	@sorted_minus_starts = @temp;
 	undef @temp;
 }
@@ -308,7 +311,7 @@ my @output_minus_array=phasogram(\@sorted_minus_starts, $delta);
 
 print STDERR "- saving results to $out_path1...";
 # open pipe to text file for writing
-my $OUT_FHs = open ">$out_path1" or die "Can't open $out_path1 for writing: $!\n";
+open my $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
 for (my $ind=0; $ind<=$#output_plus_array; $ind++) {
 	print $OUT_FHs join("\t", $output_plus_array[$ind], $output_minus_array[$ind]),"\n";
 }
@@ -380,7 +383,7 @@ sub phasogram {
 		if ( $progress_counter == $i ) {
 			print STDERR ".";
 			$progress_counter+=$counter_step;
-			#last; # enable for testing
+			# last; # enable for testing
 		}
 	}
 	my @results = grep /\S/, @output_array;
@@ -491,26 +494,26 @@ sub remove_unpiled {
 	my $pile_counter=0;
 
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
-	if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-	if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
-		push(@temp,$sorted_coords[$i]);
-		$pile_counter++;
-	}
-	elsif ($pile_counter < $pile) {
-		undef @temp;
-		$pile_counter=0;
-	}
-	elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
-		if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
-		undef @temp;
+		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
+		#if ($sorted_coords[$i-1] ~~ ($sorted_coords[$i]..$sorted_coords[$i]+$pile_delta ) ) {
+		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
 		}
-		else {
-		push @only_piled, @temp;
-		undef @temp;
+		elsif ($pile_counter < $pile) {
+			undef @temp;
+			$pile_counter=0;
 		}
-		$pile_counter=0;
-	}
-
+		elsif ($#temp>0) {
+			if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
+			undef @temp;
+			}
+			else {
+			push @only_piled, @temp;
+			undef @temp;
+			}
+			$pile_counter=0;
+		}
 	}
 	my @results = grep /\S/, @only_piled;
 	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
@@ -527,19 +530,17 @@ sub filter_by_threshold {
 	
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
 		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-		if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
-		push(@temp,$sorted_coords[$i]);
-		$pile_counter++;
-		}
-		elsif ($pile_counter >= $piles_filtering_threshold) {
-		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
-		undef @temp;
-		$pile_counter=0;
-		}
-		elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
-		push @piled_under_threshold, @temp;
-		undef @temp;
-		$pile_counter=0;
+		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
+		} elsif ($pile_counter >= $piles_filtering_threshold) {
+			push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
+			undef @temp;
+			$pile_counter=0;
+		} elsif ($#temp>0) {
+			push @piled_under_threshold, @temp;
+			undef @temp;
+			$pile_counter=0;
 		}
 	
 	}
@@ -559,19 +560,17 @@ sub local_pile_filter {
 	
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
 		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-		if ($sorted_coords[$i-1] == $sorted_coords[$i]) {
-		push(@temp,$sorted_coords[$i]);
-		$pile_counter++;
-		}
-		elsif ($pile_counter >= $piles_filtering_threshold) {
-		push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
-		undef @temp;
-		$pile_counter=0;
-		}
-		elsif (($sorted_coords[$i-1] != $sorted_coords[$i]) && ($#temp>0)) {
-		push @piled_under_threshold, @temp;
-		undef @temp;
-		$pile_counter=0;
+		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
+		} elsif ($pile_counter >= $piles_filtering_threshold) {
+			push @piled_under_threshold, @temp[0..$piles_filtering_threshold];
+			undef @temp;
+			$pile_counter=0;
+		} elsif ($#temp>0) {
+			push @piled_under_threshold, @temp;
+			undef @temp;
+			$pile_counter=0;
 		}
 	
 	}

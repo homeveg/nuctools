@@ -6,7 +6,7 @@
  
 =head1 SYNOPSIS
 
-perl -w extract_rows_occup.pl -input=<in.bed> -output=<out.bed> -start=<selected region start> -stop=<selected region end> --help [--help] 
+perl -w extract_rows_occup.pl -input=<in.bed> -output=<out.bed> -start=<selected region start> -stop=<selected region end> --coordsCol=<coordinates Col.Nr.> --help [--help] 
 
  Required arguments:
     --input | -in      path to directory with aggregate profiles
@@ -15,15 +15,17 @@ perl -w extract_rows_occup.pl -input=<in.bed> -output=<out.bed> -start=<selected
     --end | -e         chromosomal coordinate of selected region end
 
  Options:
+    --gzip | -z        compress the output
+	--coordsCol | -cC  chromosomal coordinate column Nr.(default: 0)
 	--help | h                 Help
 	
  Example usage:
  
-    perl -w extend_PE_reads.pl --input=in.bed.gz --output=out.bed.gz	
+    perl -w extract_rows_occup.pl --input=in.bed.gz --output=out.bed.gz	
 	
 	OR
 	
-    perl -w extend_PE_reads.pl -in in.bed.gz -out out.bed.gz
+    perl -w extract_rows_occup.pl -in in.bed.gz -out out.bed.gz
     
 =head1 DESCRIPTION
  
@@ -31,11 +33,10 @@ perl -w extract_rows_occup.pl -input=<in.bed> -output=<out.bed> -start=<selected
 
  NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
 
-=head2 average_replicates.pl
+=head2 extract_rows_occup.pl
 
- extend_PE_reads.pl Takes as input bed file with mapped paired-end reads (two lines per paired read) and reformat it by creating a smaller bed file with one line per nucleosome in the following format:
-(1) chromosome, (2) nucleosome start, (3) nucleosome end, (4) nucleosome length
-
+ extract_rows_occup.pl extracts occupancy values from *.OCC.GZ file for a given genomic interval and save it as a compressed *.OCC.GZ file
+ 
 =head1 AUTHORS
 
 =over
@@ -82,6 +83,8 @@ my $infile;
 my $outfile;
 my $start_interval;
 my $end_interval;
+my $coordsCol=0;
+my $useGZ;
 
 my $needsHelp;
 
@@ -89,8 +92,10 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
 	'output|out=s'   => \$outfile,
 	
-	'start|p=s' => \$start_interval,
-	'end|cC=e' => \$end_interval,
+	'start|s=s' => \$start_interval,
+	'end|e=s' => \$end_interval,
+	'coordsCol|cC=s'  => \$coordsCol,
+	'gzip|z' => \$useGZ,
 
 	'help|h'      => \$needsHelp
 );
@@ -99,10 +104,16 @@ my $options_okay = &Getopt::Long::GetOptions(
 &check_opts();
 
 # open pipe to Gzip or open text file for writing
-my $out_file = $outfile;
-$out_file =~ s/(.*)\.gz$/$1/;
-my $gz_out_file = $out_file.".gz";
-my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+  my ($gz_out_file,$out_file,$OUT_FHs);
+  $out_file = $outfile;
+	if ($useGZ) {
+		$out_file =~ s/(.*)\.gz$/$1/;
+		$gz_out_file = $out_file.".gz";
+		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	}
+	else {
+		open $OUT_FHs, '>', $outfile or die "Can't open $outfile for writing; $!\n";
+	}
 
 # open occupancy file
 my $inFH;
@@ -121,7 +132,7 @@ my $marker_count = 0;
 my $regex_split_newline='\n';
 
 my $filesize_in_bytes = -s $infile; #determine file size in bytes
-my $size_counter_step=int($filesize_in_bytes/100);
+my $size_counter_step=int($filesize_in_bytes/10);
 my $filesize = int($filesize_in_bytes/1048576); # filesize in megabytes
 
 print STDERR "Reading $infile file of $filesize MBs. Please wait...\n";
@@ -139,17 +150,17 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     foreach my $line (@lines) {
         chomp($line);
         my @newline=split(/\s/, $line);
-        if (($newline[0] >= $start_interval) and ($newline[0] <= $end_interval)) {
+        if (($newline[$coordsCol] >= $start_interval) and ($newline[$coordsCol] <= $end_interval)) {
           print $OUT_FHs join("\t",@newline), "\n";
-          print join("\t",@newline), "\n";
+          #print join("\t",@newline), "\n";
         }
-		elsif ($newline[0] > $end_interval) {
+		elsif ($newline[$coordsCol] > $end_interval) {
 			last;
 		}
     }
     $processed_memory_size += $n;
     $offset += $n;
-    if(int($processed_memory_size/1048576)>= $filesize/100) {
+    if(int($processed_memory_size/1048576)>= $size_counter_step) {
         print STDERR "."; $processed_memory_size=0;
         }
     undef @lines;
