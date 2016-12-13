@@ -179,10 +179,13 @@ if ($chrNr eq "all") {
 			
 			#initialize file handle
 			if (not defined $OUT_FHs{$chr_name} ){
-				my $out_filename_gz= $output_dir.$chr_name.".".$outfile.".bed.gz";
-				my $out_filename= $output_dir.$chr_name.".".$outfile.".bed";
+				my $suffics;
+				if ($outfile) { $suffics = ".".$outfile.".bed"; }
+				else { $suffics = ".bed.gz";}
+				my $out_filename_gz= $output_dir.$chr_name.$suffics.".gz";
+				my $out_filename= $output_dir.$chr_name.$suffics;
 				if ($useGZ) {
-				print STDERR "start writing data to file $out_filename_gz...\n";				
+					print STDERR "start writing data to file $out_filename_gz...\n";				
 					$OUT_FHs{$chr_name} = new IO::Compress::Gzip ($out_filename_gz) or open ">$out_filename" or die "Can't open $out_filename for writing: $!\n";
 				}
 				else {
@@ -218,8 +221,11 @@ elsif ($chrNr > 1) {
 
     for (my $i=0; $i<=$#chromosomes; $i++ ) {
 		push(@OUT_FHs, "*$FHs[$i]");
-		my $out_filename_gz= $output_dir.$chromosomes[$i].".".$outfile.".bed.gz";
-		my $out_filename= $output_dir.$chromosomes[$i].".".$outfile.".bed";
+		my $suffics;
+		if ($outfile) { $suffics = ".".$outfile.".bed"; }
+		else { $suffics = ".bed.gz";}
+		my $out_filename_gz= $output_dir.$chromosomes[$i].$suffics.".gz";
+		my $out_filename= $output_dir.$chromosomes[$i].$suffics;
 		if ($useGZ) {
 			print STDERR "start writing data to file $out_filename_gz...\n";				
 			$OUT_FHs[$i] = new IO::Compress::Gzip ($out_filename_gz) or open ">$out_filename" or die "Can't open $out_filename for writing: $!\n";
@@ -257,8 +263,11 @@ elsif ($chrNr > 1) {
 
 
 else {
-	my $out_filename_gz= $pattern.".".$outfile.".bed.gz";
-	my $out_filename= $pattern.".".$outfile.".bed";
+	my $suffics;
+	if ($outfile) { $suffics = ".".$outfile.".bed"; }
+	else { $suffics = ".bed.gz";}
+	my $out_filename_gz= $pattern.$suffics.".gz";
+	my $out_filename= $pattern.$suffics;
 	my $OUT_FHs;
 	if ($useGZ) {
 		print STDERR "start writing data to file $out_filename_gz...\n";				
