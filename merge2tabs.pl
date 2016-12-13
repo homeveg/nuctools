@@ -77,8 +77,11 @@ perl -w merge2tabs.pl --table1=<path to table 1> --table2=<path to table 2> --ou
 use strict;
 use Getopt::Long;
 use Pod::Usage;
-use IO::Uncompress::Gunzip qw($GunzipError);
-use IO::Compress::Gzip qw(gzip $GzipError);
+
+# optional gzip support if modules are installed
+my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
+BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
+BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gzip->import( qw[gzip] );1"; }
 
 my ($path_tab1, $path_tab2, $path2output);
 my $colID_tab1 = 0;
@@ -101,6 +104,17 @@ my $options_okay = &Getopt::Long::GetOptions(
 # Check to make sure options are specified correctly and files exist
 &check_opts();
 
+# check if GZIP is loaded
+if ( ((!$ModuleGzipIsLoaded) or (!$ModuleGunzipIsLoaded)) and ($useGzip) ) {
+	print STDERR "Can't work with GZIP: IO::Compress::Gzip is not on PATH\n";
+	exit;
+}
+elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGzip) ) {
+	print STDERR "ZGIP support enabled\n";
+}
+else {
+	print STDERR "ZGIP support disabled\n";
+}
 print STDERR "table 1:",$path_tab1, "\n";
 print STDERR "table 2:",$path_tab2, "\n";
 print STDERR "column with ID, table 1:",$colID_tab1, "\n";
@@ -113,7 +127,7 @@ my (@array_tab1,@array_tab2);
 my $inFH1;
 if ( $path_tab1 =~ (/.*\.gz$/) ) {
 	$inFH1 = IO::Uncompress::Gunzip->new( $path_tab1 )
-	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+	or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip::GunzipError\n";
 }
 else { open( $inFH1, "<", $path_tab1 ) or die "error: $path_tab1 cannot be opened:$!"; }
 while (<$inFH1>) { for my $chank  (split/\r\n/) { my $text = clean($chank); push(@array_tab1, $text); } }
@@ -123,7 +137,7 @@ close($inFH1);
 my $inFH2;
 if ( $path_tab2 =~ (/.*\.gz$/) ) {
 	$inFH2 = IO::Uncompress::Gunzip->new( $path_tab2 )
-	or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+	or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip failed::GunzipError\n";
 }
 else { open( $inFH1, "<", $path_tab2 ) or die "error: $path_tab2 cannot be opened:$!"; }
 while (<$inFH2>) { for my $chank  (split/\r\n/) { my $text = clean($chank); push(@array_tab2, $text); } }

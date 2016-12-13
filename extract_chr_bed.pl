@@ -92,8 +92,11 @@ perl -w extract_chr_bed.pl -in all_data.bed.gz -out output_name_template -p [<pa
 use strict;
 use Getopt::Long;
 use Pod::Usage;
-use IO::Uncompress::Gunzip qw($GunzipError);
-use IO::Compress::Gzip qw(gzip $GzipError) ;
+
+# optional gzip support if modules are installed
+my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
+BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
+BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gzip->import( qw[gzip] );1"; }
 
 # Variables set in response to command line arguments
 # (with defaults)
@@ -127,6 +130,18 @@ my $options_okay = &Getopt::Long::GetOptions(
 # Check to make sure options are specified correctly and files exist
 &check_opts();
 
+# check if GZIP is loaded
+if ( ((!$ModuleGzipIsLoaded) or (!$ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "Can't work with GZIP: IO::Compress::Gzip is not on PATH\n";
+	exit;
+}
+elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "ZGIP support enabled\n";
+}
+else {
+	print STDERR "ZGIP support disabled\n";
+}
+
 print STDERR "input BED file: $infile_name\n";
 print STDERR "output BED file: ",$output_dir,$outfile,"\n";
 print STDERR "chromosome ID template: $pattern\n";
@@ -139,7 +154,7 @@ my (@OUT_FHs, %OUT_FHs);
 
 if ( $infile_name =~ (/.*\.gz$/) ) {
 	$infile = IO::Uncompress::Gunzip->new( $infile_name )
-    or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+    or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip::GunzipError\n";
 }
 else { open( $infile, "<", $infile_name ) or die "error: $infile_name cannot be opened:$!"; }
 
@@ -323,13 +338,6 @@ sub check_opts {
 			-exitval => 2,
 			-verbose => 1,
 			-message => "Cannot find input BED file $infile_name: $!\n"
-		);
-	}
-	if ( ! $outfile ) {
-		pod2usage(
-			-exitval => 2,
-			-verbose => 1,
-			-message => "please specify output file name template\n"
 		);
 	}
 	if ( ! $pattern ) {

@@ -75,9 +75,12 @@ perl -w bowtie2bed.pl.pl --input=<healthy.txt> --output=<more_than1.txt> [--verb
 use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
-use IO::Compress::Gzip qw(gzip $GzipError) ;
 use File::Which;
 use List::Util qw(sum);
+
+# optional gzip support if modules are installed
+my ($ModuleGzipIsLoaded);
+BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gzip->import( qw[gzip] );1"; }
 
 my ($infile,$outfile,$verbose);
 my $needsHelp;
@@ -94,6 +97,17 @@ my $options_okay = &Getopt::Long::GetOptions(
 # Check to make sure options are specified correctly and files exist
 &check_opts();
 
+# check if GZIP is loaded
+if ( (!$ModuleGzipIsLoaded)  and ($useGZ) ) {
+	print STDERR "Can't work with GZIP: IO::Compress::Gzip is not on PATH\n";
+	exit;
+}
+elsif ( ($ModuleGzipIsLoaded) and ($useGZ) ) {
+	print STDERR "ZGIP support enabled\n";
+}
+else {
+	print STDERR "ZGIP support disabled\n";
+}
 # open output file (compressed id gzip installed)
 my ($out_file,$gz_out_file, $OUT_FHs);
 my $BAMflag;

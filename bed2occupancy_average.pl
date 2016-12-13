@@ -102,9 +102,12 @@ use Getopt::Long;
 use Pod::Usage;
 use IO::Dir;
 use List::Util 'sum';
-use IO::Uncompress::Gunzip qw($GunzipError);
-use IO::Compress::Gzip qw(gzip $GzipError) ;
 use File::Basename;
+
+# optional gzip support if modules are installed
+my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
+BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
+BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gzip->import( qw[gzip] );1"; }
 
 # Variables set in response to command line arguments
 # (with defaults)
@@ -157,6 +160,17 @@ $flag = $flag ? 1 : 0;
 # Check to make sure options are specified correctly and files exist
 &check_opts();
 
+# check if GZIP is loaded
+if ( ((!$ModuleGzipIsLoaded) or (!$ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "Can't work with GZIP: IO::Compress::Gzip is not on PATH\n";
+	exit;
+}
+elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "ZGIP support enabled\n";
+}
+else {
+	print STDERR "ZGIP support disabled\n";
+}
 
 # Display input parameters
 print STDERR "======================================\n";
@@ -215,7 +229,7 @@ sub BED_2_OCC {
 	my $infile;
 	if ( $infile_name =~ (/.*\.gz$/) ) {
 		$infile = IO::Uncompress::Gunzip->new( $infile_name )
-		or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+		or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip::GunzipError\n";
 	}
 	else { open( $infile, "<", $infile_name ) or die "error: $infile_name cannot be opened:$!"; }
     

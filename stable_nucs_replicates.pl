@@ -76,16 +76,18 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
 
 =cut
 
-
 use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
-use IO::Uncompress::Gunzip qw($GunzipError);
-use IO::Compress::Gzip qw(gzip $GzipError) ;
 use Time::localtime;
 use Time::Local;
 use File::Basename;
 use List::Util qw(sum);
+
+# optional gzip support if modules are installed
+my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
+BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
+BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gzip->import( qw[gzip] );1"; }
 
 
 my $wd;
@@ -118,6 +120,18 @@ my $options_okay = &Getopt::Long::GetOptions(
 
 # Check to make sure options are specified correctly and files exist
 &check_opts();
+
+# check if GZIP is loaded
+if ( ((!$ModuleGzipIsLoaded) or (!$ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "Can't work with GZIP: IO::Compress::Gzip is not on PATH\n";
+	exit;
+}
+elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "ZGIP support enabled\n";
+}
+else {
+	print STDERR "ZGIP support disabled\n";
+}
 
 my $tm = localtime;
 print STDERR "-----------------------\n",join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",join(":",$tm -> [2],$tm -> [1],$tm -> [0]),"\n-----------------------\n";
@@ -264,7 +278,7 @@ sub ReadFile {
 	my $inFH;
 	if ( $in_file =~ (/.*\.gz$/) ) {
 		$inFH = IO::Uncompress::Gunzip->new( $in_file )
-		or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+		or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip::GunzipError\n";
 	}
 	else { open( $inFH, "<", $in_file ) or die "error: $in_file cannot be opened:$!"; }
 

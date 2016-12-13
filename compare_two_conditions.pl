@@ -92,12 +92,15 @@ perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt>
 use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
-use IO::Uncompress::Gunzip qw($GunzipError);
-use IO::Compress::Gzip qw(gzip $GzipError) ;
 use Time::localtime;
 use Time::Local;
 use File::Basename;
 use List::Util qw(sum);
+
+# optional gzip support if modules are installed
+my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
+BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
+BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gzip->import( qw[gzip] );1"; }
 
 my ($input1,$input2);
 my $Col_signal=1;
@@ -131,6 +134,19 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'help|h'      => \$needsHelp
 );
 
+&check_opts();
+
+# check if GZIP is loaded
+if ( ((!$ModuleGzipIsLoaded) or (!$ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "Can't work with GZIP: IO::Compress::Gzip is not on PATH\n";
+	exit;
+}
+elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
+	print STDERR "ZGIP support enabled\n";
+}
+else {
+	print STDERR "ZGIP support disabled\n";
+}
 
 print STDERR "======================================\n";
 print STDERR "input file 1:",$input1, "\n";
@@ -246,7 +262,7 @@ sub ReadFile {
 	my $inFH;
 	if ( $in_file =~ (/.*\.gz$/) ) {
 		$inFH = IO::Uncompress::Gunzip->new( $in_file )
-		or die "IO::Uncompress::Gunzip failed: $GunzipError\n";
+		or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip::GunzipError\n";
 	}
 	else { open( $inFH, "<", $in_file ) or die "error: $in_file cannot be opened:$!"; }
 
