@@ -313,6 +313,7 @@ sub ReadFile {
 					$pos+=0;
 					my $occup = $string[$col_occup];
 					$occup+=0;
+					if ($occup==0) { undef @string; next; }
 					foreach my $file (@names) {
 							if(! exists ( $occupancy_hashref->{$pos}->{$file} ) ) { $occupancy_hashref->{$pos}->{$file}=0; }
 					}
