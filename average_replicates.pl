@@ -18,7 +18,7 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
     --occupCol | -oC   cumulative occupancy column Nr. (default: -oC 0)
 
    additional parameters
-	  --pattern | -p     occupancy profile file name extension template (default: occ.gz)
+    --pattern | -p     occupancy profile file name extension template (default: occ.gz)
     --printData | -d   print all input occupancy columns to the output file
     --sum | -s         print column with sum of all occupancies for each nucleotide
 		

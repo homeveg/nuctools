@@ -19,10 +19,10 @@ perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--ou
     --end_col | -e              read end column Nr. (default: -e 2)
     --strand_col | -str         strand column Nr. (default: -str 5)
     --chromosome_col | -chr     chromosome column Nr. (default: -chr 0)
-	--window | -w               running window size (default: -w 100). Set to 0 to calculate frequencies for each base.
+    --window | -w               running window size (default: -w 100). Set to 0 to calculate frequencies for each base.
 
     --ConvertAllInDir | -dir    set flag to convert all BED files in the directory to OCC
-	--outdir | -odir            path to output folder (save to input dir if not specified)
+    --outdir | -odir            path to output folder (save to input dir if not specified)
     --consider_strand | -use    consider strand when calculating occupancy
 
     --gzip | -z                 compress the output
@@ -35,7 +35,7 @@ perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--ou
 	
 	OR
     
-	bed2occupancy_average.pl -in chr1.name_template.bed -out chr1.name_template.occ -w 1000 -use
+    bed2occupancy_average.pl -in chr1.name_template.bed -out chr1.name_template.occ -w 1000 -use
     bed2occupancy_average.pl -in DIR_WITH_BED -odir DIR_WITH_OCC -w 1000 -use -dir
     bed2occupancy_average.pl -in chr1.name_template.bed.gz -w 0 -use
 

@@ -17,7 +17,7 @@ perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt>
  Options:
     define column numbers in the input occupancy files (Nr. of the very first column is 0):
     --Col_signal | -sC          occupancy column Nr. (default: 1)
-	--Col_coord | -cC           coordinate column Nr. (default: 0)
+    --Col_coord | -cC           coordinate column Nr. (default: 0)
 	
    additional parameters
     --chromosome | -c           chromosome ID
@@ -26,7 +26,7 @@ perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt>
     --threshold2 | -t2          lower threshold (default: 0.5)
 	
     --verbose | -v              consider strand when calculating occupancy
-    --gzip | -z        compress the output
+    --gzip | -z                 compress the output
     --help | -h                 Help
     
  Example usage:
@@ -289,6 +289,8 @@ sub ReadFile {
 			push (@string, split("\t",$line));
 			my $pos = $string[$col_coords]; $pos+=0;
 			my $occup = $string[$col_occup]; $occup+=0;
+			if ($occup==0) { undef @string; next; }
+			
 			$occupancy_hashref->{$pos}->{$filename1} =  $occup;
 			if(! exists ($occupancy_hashref->{$pos}->{$filename2}) ) { $occupancy_hashref->{$pos}->{$filename2}=0; }
 			undef @string;
