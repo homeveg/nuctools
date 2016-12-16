@@ -27,7 +27,8 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
     --delta | -d                  maximum distance from start of the reference nucleosome to the last in calculations (default: 400)
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
-   
+	--MaxNr | -m                  set maximum number adjacent reads to analyze (default: 1000000 )
+
    flags:
     --apply_filter | -f           apply --filtering_threshold to the data
     --fix_pile_size | -s          only consider nucleosomes in piles of the defined size (requires -p parameter)
@@ -127,6 +128,7 @@ my $start_time = time();
 # initialize flags
 my $apply_filter_flag;
 my $fix_pile_size;
+my $MaxNr=1000000;
 
 my $needsHelp;
 my $useGZ;
@@ -139,7 +141,8 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'pile|p=i'   => \$pile,
 	'pile_delta|dP=i'   => \$pile_delta,
 	'filtering_threshold|t=i'   => \$piles_filtering_threshold,
-	
+	'MaxNr|m=i' => \$MaxNr,
+
 	'start_col|sC=s' => \$start_col,
 	'end_col|eC=s'   => \$end_col,
 	'strand_col|str=s' => \$strand_col,
@@ -178,6 +181,7 @@ print STDERR "filtering threshold: $piles_filtering_threshold\n";
 if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"; }
 print STDERR "pile delta: ",$pile_delta, "\n";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
+print STDERR "Nr of reads to limit fragment length calculation: $MaxNr\n";
 print STDERR "======================================\n";
 
 
@@ -220,6 +224,7 @@ my $not_zero_counter=0;
 my $string_counter=0;
 my $chr_start;  #first read start
 my $chr_end;    # last read end
+my $cancel_load;
 
 my (%hash);
 while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
@@ -229,24 +234,31 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     my @lines = split(/$regex_split_newline/o, $buffer);
     # process each line in zone file
     foreach my $line (@lines) {
-	chomp($line);
-        my @newline1=split(/\t/, $line);
-        my $start_nuc=$newline1[$start_col];
-        my $end_nuc=$newline1[$end_col];
+		chomp($line);
+		my @newline1=split(/\t/, $line);
+		my $start_nuc=$newline1[$start_col];
+		my $end_nuc=$newline1[$end_col];
 		my $strand = $newline1[$strand_col] eq '+' ? 'plus' : 'minus' ;
 		$hash{$string_counter}{$strand}{start}=$start_nuc;
 		$hash{$string_counter}{$strand}{end}=$end_nuc;
 
-        $string_counter++;
-	if ($start_nuc>0) {$not_zero_counter++;}
+		$string_counter++;
+		if ($start_nuc>0) {$not_zero_counter++;}
+		if ( $string_counter == $MaxNr ) {
+			print STDERR "reach read number limit $MaxNr. Proceeding to the next steps...\n";
+			$cancel_load="yes";
+			last;
+		}
     }
-$processed_memory_size += $n;
-$offset += $n;
-if(int($processed_memory_size/1048576)>= $filesize/10) {
-    print STDERR "."; $processed_memory_size=0;
+	$processed_memory_size += $n;
+	$offset += $n;
+	if(int($processed_memory_size/1048576)>= $filesize/10) {
+		print STDERR "."; $processed_memory_size=0;
     }
-undef @lines;
-$buffer = "";
+	undef @lines;
+	$buffer = "";
+	if($cancel_load) {last;}
+
 }
 
 close($inFH) or die $!; 

@@ -27,6 +27,7 @@ perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt>
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
     --pile_delta | -dP            maximum distance between adjacent nucleosome starts to consider as one pile (default: 0)
+	--MaxNr | -m                  set maximum number adjacent reads to analyze (default: 1000000 )
    
    flags:
     --apply_filter | -f           apply --filtering_threshold to the data
@@ -120,7 +121,7 @@ my $start_time = time();
 my $apply_filter_flag;
 my $piles_filtering_threshold=20;
 my $fix_pile_size;
-
+my $MaxNr=1000000;
 # default BED file columns
 my $start_col=1;
 my $end_col=2;
@@ -143,6 +144,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'end_col|eC=i'   => \$end_col,
 	'strand_col|str=i' => \$strand_col,
 	'chromosome_col|chr=i'   => \$chromosome_col,
+	'MaxNr|m=i' => \$MaxNr,
 
 	'fix_pile_size|s' => \$fix_pile_size,
 	'apply_filter|f'   => \$apply_filter_flag,
@@ -224,7 +226,7 @@ my $not_zero_counter=0;
 my $string_counter=0;
 my $chr_start;  #first read start
 my $chr_end;    # last read end
-
+my $cancel_load;
 my (%hash);
 while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     if ($n >= $BUFFER_SIZE) {
@@ -233,7 +235,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     my @lines = split(/$regex_split_newline/o, $buffer);
     # process each line in zone file
     foreach my $line (@lines) {
-	chomp($line);
+		chomp($line);
         my @newline1=split(/\t/, $line);
         my $start_nuc=$newline1[$start_col];
         my $end_nuc=$newline1[$end_col];
@@ -242,15 +244,21 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 		$hash{$string_counter}{$strand}{end}=$end_nuc;
 
         $string_counter++;
-	if ($start_nuc>0) {$not_zero_counter++;}
+		if ($start_nuc>0) {$not_zero_counter++;}
+		if ( $string_counter == $MaxNr ) {
+			print STDERR "reach read number limit $MaxNr. Proceeding to the next steps...\n";
+			$cancel_load="yes";
+			last;
+		}
     }
-$processed_memory_size += $n;
-$offset += $n;
-if(int($processed_memory_size/1048576)>= $filesize/10) {
-    print STDERR "."; $processed_memory_size=0;
-    }
-undef @lines;
-$buffer = "";
+	$processed_memory_size += $n;
+	$offset += $n;
+	if(int($processed_memory_size/1048576)>= $filesize/10) {
+		print STDERR "."; $processed_memory_size=0;
+		}
+	undef @lines;
+	$buffer = "";
+	if($cancel_load) {last;}
 }
 
 close($inFH) or die $!; 
