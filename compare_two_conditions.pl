@@ -192,7 +192,7 @@ if ($useGZ) {
 	$OUT2_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 }
 else {
-	open $OUT2_FHs, '>', $output1 or die "Can't open $output1 for writing; $!\n";
+	open $OUT2_FHs, '>', $output2 or die "Can't open $output2 for writing; $!\n";
 }
 
 print STDERR "\n======================\nstart filtering...";
