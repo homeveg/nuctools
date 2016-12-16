@@ -6,7 +6,7 @@
  
 =head1 SYNOPSIS
 
-perl -w extract_rows_occup.pl --input=<in.bed> --output=<out.bed> --start=<selected region start> --stop=<selected region end> --coordsCol=<coordinates Col.Nr.> --help [--help] 
+perl -w extract_rows_occup.pl --input=<in.bed> --output=<out.bed> --start=<selected region start> --end=<selected region end> --coordsCol=<coordinates Col.Nr.> --help [--help] 
 
  Required arguments:
     --input | -in      path to directory with aggregate profiles
