@@ -6,7 +6,7 @@
  
 =head1 SYNOPSIS
 
-perl -w extract_rows_occup.pl -input=<in.bed> -output=<out.bed> -start=<selected region start> -stop=<selected region end> --coordsCol=<coordinates Col.Nr.> --help [--help] 
+perl -w extract_rows_occup.pl --input=<in.bed> --output=<out.bed> --start=<selected region start> --stop=<selected region end> --coordsCol=<coordinates Col.Nr.> --help [--help] 
 
  Required arguments:
     --input | -in      path to directory with aggregate profiles
@@ -16,8 +16,8 @@ perl -w extract_rows_occup.pl -input=<in.bed> -output=<out.bed> -start=<selected
 
  Options:
     --gzip | -z        compress the output
-	--coordsCol | -cC  chromosomal coordinate column Nr.(default: 0)
-	--help | h                 Help
+    --coordsCol | -cC  chromosomal coordinate column Nr.(default: 0)
+    --help | h         Help
 	
  Example usage:
  
