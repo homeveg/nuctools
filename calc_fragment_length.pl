@@ -184,6 +184,7 @@ print STDERR "pile delta: ",$pile_delta, "\n";
 print STDERR "filtering threshold: $piles_filtering_threshold - ";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
 else { print STDERR "do not apply upper filtering threshold\n"; }
+print STDERR "limit number of reads to process to $MaxNr\n";
 
 print STDERR "======================================\n";
 
@@ -439,7 +440,8 @@ sub even_odd {
 # Check for problem with the options or if user requests help
 sub check_opts {
 	if ($needsHelp) {
-		pod2usage( -verbose => 2 );
+		pod2usage( -exitval => 1,
+			  -verbose => 2 );
 	}
 	if ( !$options_okay ) {
 		pod2usage(

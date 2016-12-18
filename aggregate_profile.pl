@@ -210,6 +210,7 @@ my $Expression_flag="excluded";
 my $run_log_path = "AggregateProfile.log";
 my $needsHelp;
 my $useGZ;
+my $force_rewrite;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	# input files
@@ -259,6 +260,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'PerBaseNorm|pbN' => \$PerBaseNorm,
 	'verbose' => \$verbose,
 	'gzip|z' => \$useGZ,
+	'force' => \$force_rewrite,
 
 	'help|h'      => \$needsHelp
 );
@@ -348,13 +350,15 @@ print STDERR "align regions at the center: $use_centre\n";
 print STDERR "======================================\n";
 
 # exit script if output files exist
-if ( -e $out_path1 ) {
-	print STDERR "output file $out_path1 is exists already! \nExiting\n";
-	exit;
-}
-elsif ( -e $out_path2 ) {
-	print STDERR "output file $out_path2 is exists already! \nExiting\n";
-	exit;
+if (! $force_rewrite) {
+    if ( -e $out_path1 ) {
+	    print STDERR "output file $out_path1 is exists already! \nExiting\n";
+	    exit;
+    }
+    elsif ( -e $out_path2 ) {
+	    print STDERR "output file $out_path2 is exists already! \nExiting\n";
+	    exit;
+    }
 }
 
 # read annotation file top
@@ -456,7 +460,7 @@ my $regex_split_newline='\n';
 # occupancy file with chromosome ID as the very first column: chromosome | coordinate | occupancy
 my $regexp_pattern1 = '(^chr\S{1,2})\s(\d*)\s(\d*)$'; 
 # usual (per-chromosome) occupancy file: coordinate | occupancy
-my $regexp_pattern2 = '(^\d*)\s(\d*)$';
+my $regexp_pattern2 = '(^\d*)\s(\d*(?:\.)?.*)$';
 my $processed_memory_size = 0;
 my $offset=0;
 
