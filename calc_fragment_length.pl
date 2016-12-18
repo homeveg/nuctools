@@ -92,6 +92,7 @@ perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt>
 use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
+#use List::MoreUtils qw/pairwise/;
 
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
@@ -270,7 +271,7 @@ print STDERR "- sorting...";
 
 # Flatten
 my @flat_array = hash_crawler(\%hash);
-my @sorted_array = sort { $a->[3] <=> $b->[3] or $a->[2] <=> $b->[2] } @flat_array;
+my @sorted_array = sort { $a->[3] <=> $b->[3] or $a->[2] cmp $b->[2] } @flat_array;
 print STDERR "done in ", time()-$timer2, " seconds.\n";
 
 my (@sorted_plus_starts, @sorted_minus_starts, @sorted_plus_ends, @sorted_minus_ends);
@@ -331,17 +332,28 @@ if ($fix_pile_size ) {
 	undef @temp;
 }
 
-my @output_array=distogram(\@sorted_plus_starts, \@sorted_minus_ends, $delta);
-#my @results_minus2plus=distogram(\@sorted_minus_starts, \@sorted_plus_ends, $delta);
+my @DiffStrandsEnrichment_plus_minus=distogram(\@sorted_plus_starts, \@sorted_minus_starts, $delta);
+my @DiffStrandsEnrichment_minus_plus=distogram(\@sorted_minus_starts, \@sorted_plus_starts, $delta);
+#my @DiffStrandsEnrichment = pairwise { $a + $b } @DiffStrandsEnrichment_plus_minus, @DiffStrandsEnrichment_minus_plus;
+my @DiffStrandsEnrichment = sum_arrays_by_row (\@DiffStrandsEnrichment_plus_minus, \@DiffStrandsEnrichment_minus_plus);
+
+my @SameStrandsEnrichment_plus=distogram(\@sorted_plus_starts, \@sorted_plus_starts, $delta);
+my @SameStrandsEnrichment_minus=distogram(\@sorted_minus_starts, \@sorted_minus_starts, $delta);
+#my @SameStrandsEnrichment = pairwise { $a + $b } @SameStrandsEnrichment_plus, @SameStrandsEnrichment_minus;
+my @SameStrandsEnrichment = sum_arrays_by_row (\@SameStrandsEnrichment_plus, \@SameStrandsEnrichment_minus);
+
 
 print STDERR "- saving resuts to $out_path1...";
 
 # open pipe to Gzip or open text file for writing
 open my $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
-print $OUT_FHs join("\n", @output_array);
+for (my $i=0; $i<=$#DiffStrandsEnrichment; $i++ ) {
+	print $OUT_FHs $DiffStrandsEnrichment[$i],"\t", $SameStrandsEnrichment[$i], "\n";
+}
 close ($OUT_FHs);
 print STDERR "done\n\n";
-my $fragment_length_estimate = first { $output_array[$_] == max(@output_array) } 0..$#output_array;
+my $fragment_length_estimate = first { $DiffStrandsEnrichment[$_] == max(@DiffStrandsEnrichment) } 0..$#DiffStrandsEnrichment -
+first { $SameStrandsEnrichment[$_] == max(@SameStrandsEnrichment) } 0..$#SameStrandsEnrichment;
 print STDERR "Estimated fragment length is $fragment_length_estimate \n\n";
 
 
@@ -356,12 +368,31 @@ print STDERR "======================================\n";
 $message = "\nFinished:\t$stop_hour:$stop_min:$stop_sec\nduration:\t$duration sec.\n\n";
 print STDERR "$message\nBye!\n";
 
-undef @output_array;
+undef @DiffStrandsEnrichment_plus_minus;
+undef @DiffStrandsEnrichment_minus_plus;
+undef @DiffStrandsEnrichment;
+undef @SameStrandsEnrichment_plus;
+undef @SameStrandsEnrichment_minus;
+undef @SameStrandsEnrichment;
 exit;
 
 
 
 #============================================================================
+sub sum_arrays_by_row {
+	my @arrays = @_;
+	
+	my $length = $#{ $arrays[0] };
+	my @out;
+	for my $i (0 .. $length) {
+	  my $accumulator = 0;
+	  for my $array (@arrays) {
+	    $accumulator += $array->[$i];
+	  }
+	  push @out, $accumulator;
+	}
+	return(@out);
+}
 #--------------- clean line endings ----------------------------
 sub clean {
 
@@ -421,7 +452,7 @@ sub check_opts {
 		if ( ! -e "$in_file.gz" ) {
 			pod2usage(
 				-exitval => 2,
-				-verbose => 1,
+				-verbose => 2,
 				-message => "Cannot find input BED file $in_file or $in_file.gz: $!\n"
 			);
 		}

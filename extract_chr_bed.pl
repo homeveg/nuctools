@@ -144,6 +144,16 @@ else {
 
 $output_dir =~ s/(.*)\/$/$1/;
 
+#create doutput dir if not found
+if (! -d $output_dir) {
+	print STDERR "directory $output_dir not found. Creating...";
+	mkdir $output_dir or die "Error creating directory: $output_dir";
+	print STDERR "done\n";
+}
+
+
+
+
 print STDERR "input BED file: $infile_name\n";
 print STDERR "output BED file: ",$output_dir,"/", $outfile,"\n";
 print STDERR "chromosome ID template: $pattern\n";
