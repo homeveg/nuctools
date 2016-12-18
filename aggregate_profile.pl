@@ -57,7 +57,7 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --invert_strand | -invS         invert start and stop strands
     --input_occ | -inOCC            use occupancy file as an input (*.occ or *.occ.gz)
     --score                         calculate RPM value
-    --dont_save_aligned | -discA    do not save the generated aligned matrix
+    --save_aligned | -sA            save aligned matrix
     --Cut_tail | -noTail            do not use reads downstream from regions end within the downstream_delta
     
   normalization options
@@ -177,7 +177,7 @@ my $library_size_normalization;
 my $apply_DivSum_normalization;
 my $PerBaseNorm;
 my $Cut_tail;
-my $dont_save_aligned;
+my $save_aligned;
 my $apply_methylation_filter;
 my $use_centre;
 
@@ -250,7 +250,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'invert_strand|invS' => \$invert_strand, # invert start and stop strands
 	'input_occ|inOCC' => \$input_occ, # use occupancy file as an input (*.occ
 	'score' => \$calc_score, # calculate RPM value 
-	'dont_save_aligned|discA' => \$dont_save_aligned,
+	'save_aligned|sA' => \$save_aligned,
 	'Cut_tail|noTail' => \$Cut_tail,
 	#normalization options
 	'AgregateProfile|aggr' => \$normalize,
@@ -287,7 +287,7 @@ $ignore_strand = $ignore_strand ? "yes" : "no";
 $invert_strand = $invert_strand ? "yes" : "no";
 $input_occ = $input_occ ? "yes" : "no";
 $calc_score = $calc_score ? "yes" : "no";
-$dont_save_aligned = $dont_save_aligned ? "yes" : "no";
+$save_aligned = $save_aligned ? "yes" : "no";
 $normalize = $normalize ? "yes" : "no";
 $GeneLengthNorm = $GeneLengthNorm ? "yes" : "no";
 $library_size_normalization = $library_size_normalization ? "yes" : "no";
@@ -295,8 +295,8 @@ $PerBaseNorm = $PerBaseNorm ? "yes" : "no";
 $verbose = $verbose ? "yes" : "no";
 $Cut_tail = $Cut_tail ? "yes" : "no";
 
-if ($Methylation_threshold =~ /(.*)-(.*)/ ) { $methylation_range_left=$1; $methylation_range_right=$2; }
-elsif ($Methylation_threshold =~ /(.*)/ ) { $methylation_range_left=$1; }
+if (($apply_methylation_filter) && ($Methylation_threshold =~ /(.*)-(.*)/ ) ) { $methylation_range_left=$1; $methylation_range_right=$2; }
+elsif (($apply_methylation_filter) && ($Methylation_threshold =~ /(.*)/ ) ) { $methylation_range_left=$1; }
 	   
 #read arguments from command line
 
@@ -339,7 +339,7 @@ print STDERR "allowed regions overlap (bp): ",$overlap, "\n";
 print STDERR "remove transcripts on minus-strands: $remove_minus_strand\n";
 print STDERR "ignore strand information (assume all on $fixed_strand): $ignore_strand\n";
 print STDERR "normalized occupancy to a number of TSS: $normalize\n";
-print STDERR "Do not save aligned occupancy profiles: $dont_save_aligned\n";
+print STDERR "Save aligned occupancy profiles: $save_aligned\n";
 print STDERR "Apply library size normalization: $library_size_normalization\n";
 print STDERR "Normalize by transcripts Nr. per base: $PerBaseNorm\n";
 print STDERR "replace reads by 0 downstream from region end: $Cut_tail\n";
@@ -886,7 +886,7 @@ else { @results = @average_occ_freq_distr; }
 
 
 # writing outputs
-if ($dont_save_aligned eq "no") {
+if ($save_aligned eq "yes") {
     @output_array = grep /\S/, @output_array;
 	
 	# open pipe to Gzip or open text file for writing

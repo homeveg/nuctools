@@ -142,8 +142,10 @@ else {
 	print STDERR "ZGIP support disabled\n";
 }
 
+$output_dir =~ s/(.*)\/$/$1/;
+
 print STDERR "input BED file: $infile_name\n";
-print STDERR "output BED file: ",$output_dir,$outfile,"\n";
+print STDERR "output BED file: ",$output_dir,"/", $outfile,"\n";
 print STDERR "chromosome ID template: $pattern\n";
 print STDERR "total number of chromosome to extract: $chrNr\n";
 print STDERR "chromosome column Nr.: $chromosome_col\n";
@@ -196,9 +198,9 @@ if ($chrNr eq "all") {
 			if (not defined $OUT_FHs{$chr_name} ){
 				my $suffics;
 				if ($outfile) { $suffics = ".".$outfile.".bed"; }
-				else { $suffics = ".bed.gz";}
-				my $out_filename_gz= $output_dir.$chr_name.$suffics.".gz";
-				my $out_filename= $output_dir.$chr_name.$suffics;
+				else { $suffics = ".bed";}
+				my $out_filename_gz= $output_dir."/".$chr_name.$suffics.".gz";
+				my $out_filename= $output_dir."/".$chr_name.$suffics;
 				if ($useGZ) {
 					print STDERR "start writing data to file $out_filename_gz...\n";				
 					$OUT_FHs{$chr_name} = new IO::Compress::Gzip ($out_filename_gz) or open ">$out_filename" or die "Can't open $out_filename for writing: $!\n";
