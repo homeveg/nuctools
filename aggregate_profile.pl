@@ -439,7 +439,7 @@ print STDERR "\nReading occ column from $in_file file of $filesize MBs. Please w
 
 #read file with by 4kb chanks
 #@coord_occ_array=();
-my $BUFFER_SIZE = 1024*4;
+my $BUFFER_SIZE = 1024*128;
 
 # open occupancy file
 my $inFH;
@@ -466,6 +466,9 @@ my $offset=0;
 
 my %occupancy;
 my %coords;
+my $false_counter=0;
+my $total_counter=0;
+
 
 while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     if ($n >= $BUFFER_SIZE) {
@@ -474,7 +477,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     my @lines = split(/$regex_split_newline/o, $buffer);
     # process each line in zone file
     foreach my $line (@lines) {
-
+	$total_counter++;
 	if ($line =~ /$regexp_pattern1/) {
 	    if (!$3) { next; }
 	    my $chrom=$1;
@@ -492,6 +495,9 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 	    
 	    $input_occ = "yes";
 	}
+	else {
+	    $false_counter++;
+	}
 
     }
     $processed_memory_size += $n;
@@ -506,6 +512,8 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 my $duration = time()-$timer2;
 
 print STDERR " done in ", time()-$timer2, " seconds.\n";
+print STDERR "$false_counter strings from $total_counter fail to load\n";
+#exit;
 close($inFH) or die $!;
 
 
@@ -673,17 +681,12 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 			else { push(@splice_array,0); }
 		    }
 		    
-		    if ($invert_strand eq "no") {
-			if ($end_of_region_splice < $delta_1+$delta_2+1) {
-			    #code
-			    push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
-			}
+		    if ($end_of_region_splice < $delta_1+$delta_2+1) {
+			#code
+			push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
 		    }
-		    else {		    
-			if ($end_of_region_splice < $delta_1+$delta_2+1) {
-			    #code
-			    push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
-			}
+		    
+		    if ($invert_strand eq "yes") {
 			my @temp = @splice_array;
 			@splice_array = reverse(@temp);
 		    }
