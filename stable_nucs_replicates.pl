@@ -10,7 +10,7 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
 
  Required arguments:
     --inputDir  | -in    path to directory with aggregate profiles
-    --output | -out      output table file name
+    --output | -out      full path to output table
     --chromosome | -chr  chromosome ID
 
  Options:
