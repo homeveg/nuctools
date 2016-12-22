@@ -20,12 +20,13 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
     --occupCol  | -oC   cumulative occupancy column Nr. (default: -oC 0)
     
  additional parameters
-    --printData  | -d          print all input occupancy columns to the output file
-    --StableThreshold   | -t   set threshold on relative error (St.Dev/Mean) to define stable nucleosomes (default: 0.5)
-	--fileExtention | -p       input files extention (default: bed)
+    --printData  | -d       print all input occupancy columns to the output file
+    --StableThreshold | -t  set threshold on relative error (St.Dev/Mean) to define stable nucleosomes (default: 0.5)
+	--fileExtention | -p    input files extention (default: bed)
+    --fuzzy | -f            save fuzzy regions (below threshold)
 	
-	--gzip | -z                compress the output
-	--help | -h                Help
+	--gzip | -z             compress the output
+	--help | -h             Help
 	
  Example usage:
  
@@ -104,6 +105,7 @@ my $filename_pattern="bed";
 
 my $useGZ;
 my $needsHelp;
+my $fuzzy;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'inputDir|in=s' => \$wd,
@@ -117,6 +119,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'printData|d' => \$addData,
 	'StableThreshold|t=s' => \$StableThreshold,
 	'gzip|z' => \$useGZ,
+	'fuzzy|f' => \$fuzzy,
 
 	'help|h'      => \$needsHelp
 );
@@ -205,8 +208,11 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
     my $rel_err;
     if ($Mean!=0) {  $rel_err=$stdev/$Mean; }
     else {$rel_err=0;}
-	
-    if (($rel_err < $StableThreshold) && ($rel_err!=0)) { 
+	if ( ($fuzzy) && ($rel_err > $StableThreshold) && ($rel_err!=0)) {
+		if ($addData eq "yes") { print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,@temp),"\n";   }
+    	else {print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,),"\n";   }
+	}
+    elsif (  (!$fuzzy) &&  ($rel_err < $StableThreshold) && ($rel_err!=0)) { 
     	if ($addData eq "yes") { print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,@temp),"\n";   }
     	else {print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,),"\n";   }
     }
