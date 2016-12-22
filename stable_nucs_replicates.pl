@@ -9,7 +9,7 @@ stable_nucs_replicates.pl - Finds stable nucleosomes using all replicates for th
 perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed> --chromosome=chr1 [-coordsCol=0 -occupCol=2 -StableThreshold=0.5 --printData ] [--help] 
 
  Required arguments:
-    --input  | -in       path to directory with aggregate profiles
+    --inputDir  | -in    path to directory with aggregate profiles
     --output | -out      output table file name
     --chromosome | -chr  chromosome ID
 
@@ -22,9 +22,10 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
  additional parameters
     --printData  | -d          print all input occupancy columns to the output file
     --StableThreshold   | -t   set threshold on relative error (St.Dev/Mean) to define stable nucleosomes (default: 0.5)
-		
-	  --gzip | -z                compress the output
-	  --help | -h                Help
+	--fileExtention | -p       input files extention (default: bed)
+	
+	--gzip | -z                compress the output
+	--help | -h                Help
 	
  Example usage:
  
@@ -99,14 +100,16 @@ my $StableThreshold=0.5;
 my %NormFactors;
 my $output;
 my $addData="no";
+my $filename_pattern="bed";
 
 my $useGZ;
 my $needsHelp;
 
 my $options_okay = &Getopt::Long::GetOptions(
-	'dir|in=s' => \$wd,
+	'inputDir|in=s' => \$wd,
 	'output|out=s'   => \$output,
 	'chromosome|chr=s' => \$chr,
+	'fileExtention|p=s' => \$filename_pattern,
 
 	'coordsCol|cC=s' => \$coordsCol,
 	'occupCol|oC=s' => \$occupCol,
@@ -140,7 +143,6 @@ opendir(DIR, "$wd") or die $!;
 my @all_files = readdir(DIR);
 closedir(DIR);
 my (@names,@files);
-my $filename_pattern=".*\.bed";
 
 foreach my $file (sort @all_files){
   if ($file =~ m/.*\.$filename_pattern$/){
@@ -150,6 +152,7 @@ foreach my $file (sort @all_files){
 	}
 }
 
+print STDERR "process ",$#names+1," files. Please wait...\n";
 for (my $i=0; $i<=$#files; $i++) {
 	my $filename = $names[$i];
 	my $file = $files[$i];
