@@ -32,8 +32,9 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
    flags:
     --apply_filter | -f           apply --filtering_threshold to the data
     --fix_pile_size | -s          only consider nucleosomes in piles of the defined size (requires -p parameter)
-
-	--help | h                 Help
+    --useStrand | -uS             use strand information (for single-end sequencing reads)
+	
+	--help | h                nnn Help
 	
  Example usage:
  
@@ -132,6 +133,8 @@ my $MaxNr=1000000;
 
 my $needsHelp;
 my $useGZ;
+my $useStrand;
+
 #read arguments from command line
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$in_file,
@@ -150,6 +153,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 
 	'fix_pile_size|s' => \$fix_pile_size,
 	'apply_filter|f'   => \$apply_filter_flag,
+	'useStrand|uS' => \$useStrand,
 
 	'help|h'      => \$needsHelp
 );
@@ -181,6 +185,7 @@ print STDERR "filtering threshold: $piles_filtering_threshold\n";
 if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"; }
 print STDERR "pile delta: ",$pile_delta, "\n";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
+if ( defined $useStrand ) { print STDERR "analyzing single-end reads\n"; }
 print STDERR "Nr of reads to limit fragment length calculation: $MaxNr\n";
 print STDERR "======================================\n";
 
@@ -238,7 +243,10 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 		my @newline1=split(/\t/, $line);
 		my $start_nuc=$newline1[$start_col];
 		my $end_nuc=$newline1[$end_col];
-		my $strand = $newline1[$strand_col] eq '+' ? 'plus' : 'minus' ;
+		my $strand;
+		if ($useStrand) { $strand = $newline1[$strand_col] eq '+' ? 'plus' : 'minus' ; }
+		else { $strand = 'plus'; }
+		
 		$hash{$string_counter}{$strand}{start}=$start_nuc;
 		$hash{$string_counter}{$strand}{end}=$end_nuc;
 
@@ -292,12 +300,16 @@ for my $entry (@sorted_array) {
 	
 }
 
-print STDERR join("\t", "plus starts: $#sorted_plus_starts",  "plus ends: $#sorted_plus_ends",
-				  "minus starts: $#sorted_minus_starts",  "minus ends: $#sorted_minus_ends"),"\n";
-
-for (my $i=0; $i<=10; $i++) {
-	print STDERR join("\t", $sorted_plus_starts[$i],  $sorted_plus_ends[$i], 
-				  $sorted_minus_starts[$i], $sorted_minus_ends[$i]),"\n";
+if ($useStrand) {
+	print STDERR join("\t", "plus starts: $#sorted_plus_starts",  "plus ends: $#sorted_plus_ends", "minus starts: $#sorted_minus_starts",  "minus ends: $#sorted_minus_ends"),"\n";
+	for (my $i=0; $i<=10; $i++) {
+		print STDERR join("\t", $sorted_plus_starts[$i],  $sorted_plus_ends[$i], $sorted_minus_starts[$i], $sorted_minus_ends[$i]),"\n";
+	}
+} else {
+	print STDERR join("\t", "plus starts: $#sorted_plus_starts",  "plus ends: $#sorted_plus_ends"),"\n";
+	for (my $i=0; $i<=10; $i++) {
+		print STDERR join("\t", $sorted_plus_starts[$i],  $sorted_plus_ends[$i]),"\n";
+	}
 }
 
 print STDERR "done in ", time()-$timer2, " seconds.\n";
@@ -309,39 +321,50 @@ if ($pile>1) {
 	my @temp = remove_unpiled($pile, $fix_pile_size, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
 	undef @temp;
-	@temp = remove_unpiled($pile, $fix_pile_size, @sorted_minus_starts);
-	@sorted_minus_starts = @temp;
-	undef @temp;
+	if ($useStrand) {
+		@temp = remove_unpiled($pile, $fix_pile_size, @sorted_minus_starts);
+		@sorted_minus_starts = @temp;
+		undef @temp;	
+	}
+
 }
 
 if ($apply_filter_flag) {
 	print STDERR "remove piles above $piles_filtering_threshold\n";
 	my @temp = filter_by_threshold($piles_filtering_threshold, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
-	@temp = filter_by_threshold($piles_filtering_threshold, @sorted_minus_starts);
-	@sorted_minus_starts = @temp;
-	undef @temp;
+		
+	if ($useStrand) {
+		@temp = filter_by_threshold($piles_filtering_threshold, @sorted_minus_starts);
+		@sorted_minus_starts = @temp;
+		undef @temp;	
+	}
+
+
 }
 
 if ($fix_pile_size ) {
 	print STDERR "select only piles of size $pile\n";
 	my @temp = local_pile_filter($pile, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
-	@temp = local_pile_filter($pile, @sorted_minus_starts);
-	@sorted_minus_starts = @temp;
-	undef @temp;
+	if ($useStrand) {
+		@temp = local_pile_filter($pile, @sorted_minus_starts);
+		@sorted_minus_starts = @temp;
+		undef @temp;
+	}
 }
 
 print STDERR "Step 2: Start analysis...\n";
 $timer2= time();
-my @output_plus_array=phasogram(\@sorted_plus_starts, $delta);
-my @output_minus_array=phasogram(\@sorted_minus_starts, $delta);
-
+my (@output_plus_array,@output_minus_array);
+@output_plus_array=phasogram(\@sorted_plus_starts, $delta);
+if ($useStrand) { @output_minus_array=phasogram(\@sorted_minus_starts, $delta); }
 print STDERR "- saving results to $out_path1...";
 # open pipe to text file for writing
 open my $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
 for (my $ind=0; $ind<=$#output_plus_array; $ind++) {
-	print $OUT_FHs join("\t", $output_plus_array[$ind], $output_minus_array[$ind]),"\n";
+	if ($useStrand) { print $OUT_FHs join("\t", $output_plus_array[$ind], $output_minus_array[$ind]),"\n"; }
+	else { print $OUT_FHs $output_plus_array[$ind],"\n"; }
 }
 close ($OUT_FHs);
 print STDERR "done\n";

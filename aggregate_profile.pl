@@ -64,8 +64,9 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --AgregateProfile | -aggr       calculates aggregate profile representing the average occupancy
     --GeneLengthNorm | -glN         normalize each profile to the region length (gene length)
     --LibsizeNorm | -lsN            perform sequencing library size normalization
-    --PerBaseNorm | -pbN            compensate for the transcript length difference 
+    --PerBaseNorm | -pbN            compensate for the transcript length difference
 
+	--force                         overwrite output file with the same file name 
     --gzip | -z                     compress the output
     --verbose'                      display additional run info
     --help|h'                       display detailed help
