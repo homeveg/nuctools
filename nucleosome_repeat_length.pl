@@ -185,7 +185,8 @@ print STDERR "filtering threshold: $piles_filtering_threshold\n";
 if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"; }
 print STDERR "pile delta: ",$pile_delta, "\n";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
-if ( defined $useStrand ) { print STDERR "analyzing single-end reads\n"; }
+if ( defined $useStrand ) { print STDERR "analyzing single-end reads: use starnd from column $strand_col\n"; }
+else { print STDERR "analyzing paired-end reads: ignore strand\n"; }
 print STDERR "Nr of reads to limit fragment length calculation: $MaxNr\n";
 print STDERR "======================================\n";
 
@@ -240,7 +241,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     # process each line in zone file
     foreach my $line (@lines) {
 		chomp($line);
-		my @newline1=split(/\t/, $line);
+		my @newline1=split(/\W+/, $line);
 		my $start_nuc=$newline1[$start_col];
 		my $end_nuc=$newline1[$end_col];
 		my $strand;
