@@ -279,7 +279,7 @@ print STDERR "- sorting...";
 
 # Flatten
 my @flat_array = hash_crawler(\%hash);
-my @sorted_array = sort { $a->[3] <=> $b->[3] or $a->[2] <=> $b->[2] } @flat_array;
+my @sorted_array = sort { $a->[3] <=> $b->[3] or $a->[2] cmp $b->[2] } @flat_array;
 print STDERR "done in ", time()-$timer2, " seconds.\n";
 
 my (@sorted_plus_starts, @sorted_minus_starts, @sorted_plus_ends, @sorted_minus_ends);
