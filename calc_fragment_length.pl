@@ -606,7 +606,7 @@ sub distogram {
 		my $max_delta_index=5*$delta;
 		# check if incremented index exceeds reads array length and correct it if necessary
 		if ($i+$max_delta_index>=$#sorted_starts) { $max_delta_index = $#sorted_starts-$i; }
-		my @sorted_ends=@ends;
+		my @sorted_ends=@ends[$i..($i+$max_delta_index)];
 
 		for (my $n=0; $n<=$max_delta_index ; $n++) {
 			if (!$sorted_starts[$i+$n]) { last; }

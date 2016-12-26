@@ -410,7 +410,7 @@ sub phasogram {
 		my $max_delta_index=5*$delta;
 		# check if incremented index exceeds reads array length and correct it if necessary
 		if ($i+$max_delta_index>=$#sorted_starts) { $max_delta_index = $#sorted_starts-$i; }
-		my @other_starts=@sorted_starts;
+		my @other_starts=@sorted_starts[$i..($i+$max_delta_index)];
 
 		for (my $n=0; $n<=$max_delta_index ; $n++) {
 			if (!$sorted_starts[$i+$n]) { last; }
@@ -632,3 +632,18 @@ sub local_pile_filter {
 
 }
 
+#============================================================================
+sub sum_arrays_by_row {
+	my @arrays = @_;
+	
+	my $length = $#{ $arrays[0] };
+	my @out;
+	for my $i (0 .. $length) {
+	  my $accumulator = 0;
+	  for my $array (@arrays) {
+	    $accumulator += $array->[$i];
+	  }
+	  push @out, $accumulator;
+	}
+	return(@out);
+}
