@@ -308,27 +308,27 @@ $timer2= time();
 # remove nucleosomoes without repeat ($pile>1)
 if ($pile>1) {
 	print STDERR "remove nucleosomoes without repeat\n";
-	my @temp = remove_unpiled($pile, $fix_pile_size, @sorted_plus_starts);
+	my @temp = remove_unpiled($pile, $fix_pile_size, $pile_delta, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
-	@temp = remove_unpiled($pile, $fix_pile_size, @sorted_minus_starts);
+	@temp = remove_unpiled($pile, $fix_pile_size, $pile_delta, @sorted_minus_starts);
 	@sorted_minus_starts = @temp;
 	undef @temp;
 }
 
 if ($apply_filter_flag) {
 	print STDERR "remove piles above $piles_filtering_threshold\n";
-	my @temp = filter_by_threshold($piles_filtering_threshold, @sorted_plus_starts);
+	my @temp = filter_by_threshold($piles_filtering_threshold, $pile_delta, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
-	@temp = filter_by_threshold($piles_filtering_threshold, @sorted_minus_starts);
+	@temp = filter_by_threshold($piles_filtering_threshold, $pile_delta, @sorted_minus_starts);
 	@sorted_minus_starts = @temp;
 	undef @temp;
 }
 
 if ($fix_pile_size ) {
 	print STDERR "select only piles of size $pile\n";
-	my @temp = local_pile_filter($pile, @sorted_plus_starts);
+	my @temp = local_pile_filter($pile, $pile_delta, @sorted_plus_starts);
 	@sorted_plus_starts = @temp;
-	@temp = local_pile_filter($pile, @sorted_minus_starts);
+	@temp = local_pile_filter($pile, $pile_delta, @sorted_minus_starts);
 	@sorted_minus_starts = @temp;
 	undef @temp;
 }
@@ -483,7 +483,7 @@ sub hash_crawler {
 }
 
 sub remove_unpiled {
-	my ($pile, $fix_pile_size, @sorted_coords) = @_;
+	my ($pile, $fix_pile_size, $pile_delta, @sorted_coords) = @_;
 	my @only_piled = ();
 	my @temp;
 
@@ -495,12 +495,11 @@ sub remove_unpiled {
 	print STDERR "- removing un-piled nucleosomes...";
 	}
 	
-	my $pile_counter=0;
+	my $pile_counter=1;
 
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
 		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-		#if ($sorted_coords[$i-1] ~~ ($sorted_coords[$i]..$sorted_coords[$i]+$pile_delta ) ) {
-		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+		if ( ($sorted_coords[$i] >= $sorted_coords[$i-1] ) && ($sorted_coords[$i] <= $sorted_coords[$i-1] + $pile_delta) ) {
 			push(@temp,$sorted_coords[$i]);
 			$pile_counter++;
 		}
@@ -508,16 +507,15 @@ sub remove_unpiled {
 			undef @temp;
 			$pile_counter=0;
 		}
-		elsif ($#temp>0) {
-			if(($fix_pile_size eq "yes") && ($#temp != $pile)) {
-			undef @temp;
-			}
+		elsif ( not ( ($sorted_coords[$i] >= $sorted_coords[$i-1] ) && ($sorted_coords[$i] <= $sorted_coords[$i-1] + $pile_delta)) && ($#temp>0) ) {
+			if(($fix_pile_size) && ($#temp != $pile)) { undef @temp; }
 			else {
-			push @only_piled, @temp;
-			undef @temp;
+				push @only_piled, @temp;
+				undef @temp;
 			}
 			$pile_counter=0;
 		}
+
 	}
 	my @results = grep /\S/, @only_piled;
 	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
@@ -526,7 +524,7 @@ sub remove_unpiled {
 }
 
 sub filter_by_threshold {
-	my ($piles_filtering_threshold, @sorted_coords) = @_;
+	my ($piles_filtering_threshold, $pile_delta, @sorted_coords) = @_;
 	print STDERR "- apply local pile filter: removing reads in the pile above $piles_filtering_threshold ...";
 	my @piled_under_threshold;
 	my $pile_counter=0;
@@ -534,7 +532,7 @@ sub filter_by_threshold {
 	
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
 		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+		if ( ($sorted_coords[$i] >= $sorted_coords[$i-1] ) && ($sorted_coords[$i] <= $sorted_coords[$i-1] + $pile_delta) ) {
 			push(@temp,$sorted_coords[$i]);
 			$pile_counter++;
 		} elsif ($pile_counter >= $piles_filtering_threshold) {
@@ -554,7 +552,7 @@ sub filter_by_threshold {
 }
 
 sub local_pile_filter {
-	my ($piles_filtering_threshold, @sorted_coords) = @_;
+	my ($piles_filtering_threshold, $pile_delta, @sorted_coords) = @_;
 	my @only_piled = ();
 	my @temp;
 
@@ -564,7 +562,7 @@ sub local_pile_filter {
 	
 	for (my $i=1; $i<=$#sorted_coords; $i++) {
 		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
-		if ( $sorted_coords[$i-1]+ $pile_delta >= $sorted_coords[$i] ) {
+		if ( ($sorted_coords[$i] >= $sorted_coords[$i-1] ) && ($sorted_coords[$i] <= $sorted_coords[$i-1] + $pile_delta) ) {
 			push(@temp,$sorted_coords[$i]);
 			$pile_counter++;
 		} elsif ($pile_counter >= $piles_filtering_threshold) {
@@ -583,6 +581,7 @@ sub local_pile_filter {
 	return(@results);
 
 }
+
 
 sub distogram {
 	my ($sorted_starts_ref, $sorted_ends_ref, $delta) = @_;
