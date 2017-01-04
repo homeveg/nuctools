@@ -19,7 +19,7 @@ perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--ou
     --end_col | -e              read end column Nr. (default: -e 2)
     --strand_col | -str         strand column Nr. (default: -str 5)
     --chromosome_col | -chr     chromosome column Nr. (default: -chr 0)
-    --window | -w               running window size (default: -w 100). Set to 0 to calculate frequencies for each base.
+    --window | -w               running window size (default: -w 100). Set to 1 to calculate frequencies for each base.
 
     --ConvertAllInDir | -dir    set flag to convert all BED files in the directory to OCC
     --outdir | -odir            path to output folder (save to input dir if not specified)
@@ -127,7 +127,7 @@ my $strand_col=5;
 my $chromosome_col=0;
 
 # parameters
-my $running_window=100;
+my $running_window=1;
 my $region_start=0;
 my $region_end;
 my $useGZ;
@@ -248,8 +248,7 @@ sub BED_2_OCC {
     print STDERR "Reading $infile_name file of $filesize MBs. Please wait...\n";
     my $processed_memory_size = 0;
     my $offset=0;
-    my $not_zero_counter=0;
-    my $string_counter=0;
+    my $line_counter=0;
     my $BUFFER_SIZE = 1024;
     my @occup=();
     my $old_coordinate=1;
@@ -283,9 +282,11 @@ sub BED_2_OCC {
                 if(!$occup[$j]) {$occup[$j]=0;}
                 $occup[$j]++;
             }
+			$line_counter++;
         }
         $processed_memory_size += $n;
         $offset += $n;
+		
         if(int($processed_memory_size/1048576)>= $filesize/10) {
             print STDERR "."; $processed_memory_size=0;
             }
@@ -312,25 +313,16 @@ sub BED_2_OCC {
     $timer2 = time();
  
     #initialize running average for first 2*$running_window+1 nucleotides
-    my ($sum, $normalized_occupancy);
-    
+    my $LibSize_norm_factor = ($line_counter)/($region_end-$region_start);
     # modify running average by shifting
     if (!$region_end) {	$region_end=$#occup; }
-	if ($running_window > 0 ) {
+	if ($running_window > 1 ) {
     print STDERR "calculating and printing normalized occupancy with a running window +/- ",$running_window,"\nPlease wait...";
 		for (my $i=$region_start; $i<$region_end; $i+=$running_window) {
-			$sum=0;
-			$sum=sum(@occup[$i..$i+$running_window]);
-	
+			my $sum=sum(@occup[$i..$i+$running_window]);
 			my $average = $sum/$running_window;
-			
-			if ($average !=0) {
-			#	print $OUT_FHs join ("\t", $i+$running_window,0),"\n";
-			#}
-			#else {
-				$normalized_occupancy = $occup[$i+int($running_window/2)]/$average;
-				print $OUT_FHs join ("\t", $i+$running_window,$average),"\n";	    
-			}
+			my $normalized_occupancy = $average/$LibSize_norm_factor;
+			print $OUT_FHs join ("\t", $i+$running_window,$normalized_occupancy),"\n";	    
 		}
 		print STDERR "done\n";
 	}
@@ -338,10 +330,8 @@ sub BED_2_OCC {
 		print STDERR "calculating and printing occupancy\nPlease wait...";
 		for (my $i=$region_start; $i<$region_end; $i++) {			
 			if ($occup[$i] !=0) {
-			#	print $OUT_FHs join ("\t", $i+$running_window,0),"\n";
-			#}
-			#else {
-				print $OUT_FHs join ("\t", $i,$occup[$i]),"\n";	    
+				my $normalized_occupancy = $occup[$i]/$LibSize_norm_factor;
+				print $OUT_FHs join ("\t", $i, $normalized_occupancy),"\n";	    
 			}
 		}
 		print STDERR "done\n";

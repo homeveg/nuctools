@@ -24,6 +24,7 @@ perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt>
     --windowSize | -w           running window size. Use same value as for average occupancy calculation (default: 100)
     --threshold1 | -t1          upper threshold (default: 0.8)
     --threshold2 | -t2          lower threshold (default: 0.5)
+	--allowNull | -aN           allow occupancy 0 in either conditions
 	
     --verbose | -v              consider strand when calculating occupancy
     --gzip | -z                 compress the output
@@ -113,6 +114,7 @@ my $windowSize=100;
 my $verbose;
 my $needsHelp;
 my $useGZ;
+my $allowNull;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input1|i1=s' => \$input1,
@@ -125,6 +127,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'threshold1|t1=s' => \$threshold1,
 	'threshold2|t2=s' => \$threshold2,
+	'allowNull|aN' => \$allowNull,
 	
 	'Col_signal|sC=s' => \$Col_signal,
 	'Col_coord|cC=s' => \$Col_coord,
@@ -158,6 +161,9 @@ print STDERR "Occupancy column ID: ",$Col_signal, "\n";
 print STDERR "Coordinates column ID: ",$Col_coord, "\n";
 print STDERR "Upper threshold: ",$threshold1, "\n";
 print STDERR "Lower threshold: ",$threshold2, "\n";
+if($allowNull) {
+print STDERR "Allow zero in one of the conditions\n";
+}
 print STDERR "======================================\n";
 print STDERR "chromosome name: ",$chromosome, "\n";
 print STDERR "bin size: ",$windowSize, "\n";
@@ -209,17 +215,27 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
     my $start_region = $position-$windowSize;
     my $end_region = $position;
     my $above_below_flag="between";
-    if ($norm_difference > $threshold1) {
+    if (($norm_difference > $threshold1) &&  ($occup1 > 0) && ($occup2 > 0)) {
         print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
-	$above_counter++;
-	$above_below_flag="above";
+		$above_counter++;
+		$above_below_flag="above";
     }
-    if ($norm_difference < $threshold2) {
+    elsif (($norm_difference > $threshold1) &&  ($allowNull)) {
+        print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
+		$above_counter++;
+		$above_below_flag="above";
+    }
+	
+    if (($norm_difference < $threshold2) &&  ($occup1 > 0) && ($occup2 > 0)){
         print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1, $occup2),"\n";
-	$below_counter++;
-	$above_below_flag="below";
+		$below_counter++;
+		$above_below_flag="below";
     }
-    
+    elsif (($norm_difference < $threshold2) &&  ($allowNull)){
+        print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1, $occup2),"\n";
+		$below_counter++;
+		$above_below_flag="below";
+    }
     if ($verbose) {
 	#code
 	print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1,$occup2), "\n";
