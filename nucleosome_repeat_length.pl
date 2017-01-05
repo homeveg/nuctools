@@ -472,24 +472,6 @@ sub min {
   return($min);
 }
 
-#===========================================================#
-sub median {
-	my $median;
-	my @data = sort {$a <=> $b } @_;
-	if (even_odd($#data+1) eq "ODD") {
-	$median = $data[$#data/2];
-	}
-	else {
-	$median = Average($data[$#data/2],$data[($#data/2)+1]);
-	}
-	return($median);
-}
-#===========================================================#
-sub even_odd {
-	if (int($_[0]/2) == $_[0]/2) { return "EVEN"; }
-	else {return "ODD";}
-}
-
 #--------------------------------------------------------------------------
 # Check for problem with the options or if user requests help
 sub check_opts {

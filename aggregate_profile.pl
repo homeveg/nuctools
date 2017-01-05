@@ -6,7 +6,7 @@ aggregate_profile.pl - Calculates aggregate profile of sequencing read density a
 
 =head1 SYNOPSIS
 
-perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--expression=<gene_expression.rpkm>] --aligned=<output.aligned.tab.gz> --average_aligned=<output.aggregare.txt> [ --path2log=<AggregateProfile.log> --region_start_column=<column Nr.> --region_end_column=<column Nr.> --strand_column=<column Nr.> --chromosome_col=<column Nr.> --GeneId_column=<column Nr.> --Expression_columnID=<column Nr.> --Methylation_columnID=<column Nr.> --Methylation_columnID2=<column Nr.> --upstream_delta=<column Nr.> --downstream_delta==<column Nr.> --upper_threshold=<column Nr.> --lower_threshold=<column Nr.> --Methylation_threshold=<value|range_start-range_end> --overlap=<length> --library_size=<Nr.> --remove_minus_strand | --ignore_strand | --fixed_strand=[plus|minus] --invert_strand --input_occ --score --dont_save_aligned --Cut_tail --chromosome=chrN --AgregateProfile --GeneLengthNorm --LibsizeNorm --PerBaseNorm --useCentre --use_default --verbose --help ]
+perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--expression=<gene_expression.rpkm>] --aligned=<output.aligned.tab.gz> --average_aligned=<output.aggregare.txt> [ --path2log=<AggregateProfile.log> --region_start_column=<column Nr.> --region_end_column=<column Nr.> --strand_column=<column Nr.> --chromosome_col=<column Nr.> --GeneId_column=<column Nr.> --Expression_columnID=<column Nr.> --Methylation_columnID=<column Nr.> --Methylation_columnID2=<column Nr.> --upstream_delta=<column Nr.> --downstream_delta==<column Nr.> --upper_threshold=<column Nr.> --lower_threshold=<column Nr.> --Methylation_threshold=<value|range_start-range_end> --overlap=<length> --library_size=<Nr.> --remove_minus_strand | --ignore_strand | --fixed_strand=[plus|minus] --invert_strand --input_occ --score --save_aligned --Cut_tail --chromosome=chrN --AgregateProfile --GeneLengthNorm --LibsizeNorm --PerBaseNorm --useCentre --use_default --verbose --help ]
 
  Required arguments:
  
@@ -59,7 +59,8 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --score                         calculate RPM value
     --save_aligned | -sA            save aligned matrix
     --Cut_tail | -noTail            do not use reads downstream from regions end within the downstream_delta
-    
+    --window | -w                   running window parameter equal to one provided in bed2occupancy_average.pl parameter. (Default: 100)
+	
   normalization options
     --AgregateProfile | -aggr       calculates aggregate profile representing the average occupancy
     --GeneLengthNorm | -glN         normalize each profile to the region length (gene length)
@@ -146,6 +147,7 @@ use Time::localtime;
 use Time::Local;
 #use Roman;
 use List::Util qw(sum);
+use List::Util qw(first);
 use Getopt::Long;
 use Pod::Usage;
 
@@ -163,7 +165,7 @@ my $start_hour = $tm ->[2];
 my $start_time = time();
 
 # Default parametrs
-my $verbose=0;
+my $verbose;
 my $delta_1 = 100;
 my $delta_2 = 1500;
 my $upper_occup_threshold = 10000;
@@ -181,6 +183,7 @@ my $Cut_tail;
 my $save_aligned;
 my $apply_methylation_filter;
 my $use_centre;
+my $window = 100;
 
 my $GeneId_column = 0;
 my $chromosome_nr_col=6;
@@ -262,6 +265,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'verbose' => \$verbose,
 	'gzip|z' => \$useGZ,
 	'force' => \$force_rewrite,
+	'window|w=s' => \$window,
 
 	'help|h'      => \$needsHelp
 );
@@ -283,19 +287,7 @@ else {
 }
 
 # set flags
-$apply_methylation_filter = $apply_methylation_filter ? "yes" : "no";
-$use_centre = $use_centre ? "yes" : "no";
-$remove_minus_strand = $remove_minus_strand ? "yes" : "no";
-$ignore_strand = $ignore_strand ? "yes" : "no";
-$invert_strand = $invert_strand ? "yes" : "no";
 $input_occ = $input_occ ? "yes" : "no";
-$calc_score = $calc_score ? "yes" : "no";
-$save_aligned = $save_aligned ? "yes" : "no";
-$normalize = $normalize ? "yes" : "no";
-$GeneLengthNorm = $GeneLengthNorm ? "yes" : "no";
-$library_size_normalization = $library_size_normalization ? "yes" : "no";
-$PerBaseNorm = $PerBaseNorm ? "yes" : "no";
-$verbose = $verbose ? "yes" : "no";
 $Cut_tail = $Cut_tail ? "yes" : "no";
 
 if (($apply_methylation_filter) && ($Methylation_threshold =~ /(.*)-(.*)/ ) ) { $methylation_range_left=$1; $methylation_range_right=$2; }
@@ -303,7 +295,7 @@ elsif (($apply_methylation_filter) && ($Methylation_threshold =~ /(.*)/ ) ) { $m
 	   
 #read arguments from command line
 
-if ((!$library_size) && ($library_size_normalization eq "yes")) {
+if ((!$library_size) && ($library_size_normalization)) {
     #code
     warn "please specify library size!";
     exit;
@@ -314,40 +306,45 @@ $out_path1 = $out_path1.".delta_".$delta_1."_".$delta_2.".txt.gz";
 $out_path2 = $out_path2.".delta_".$delta_1."_".$delta_2.".txt";
 # Display input parametrs
 print STDERR "======================================\n";
-print STDERR "path to a log file: $run_log_path\n";
-print STDERR "======================================\n";
+print STDERR "----------- path to files ------------\n";
+print STDERR "run log file: $run_log_path\n";
 print STDERR "in file:",$in_file, "\n";
 print STDERR "aligned file:",$out_path1, "\n";
 print STDERR "average file:", $out_path2, "\n";
 print STDERR "gene annotation file: ",$Gene_annotation_table, "\n";
 if ( defined $expression_file) { print STDERR "expression values and flags file: ",$expression_file, "\n"; }
+print STDERR "---- annotation file columns IDs -----\n";
 print STDERR "region ID column: ",$GeneId_column, "\n";
 print STDERR "expression column (log2ratio or absolute): ",$GeneExpression_column, "\n";
 print STDERR "region start column: ",$region_start_column, "\n";
 print STDERR "region end column: ",$region_end_column, "\n";
 print STDERR "strand column: ",$strand_column, "\n";
-print STDERR "invert strand: ",$invert_strand, "\n";
+print STDERR "--------- analysis settings ----------\n";
+if ($invert_strand) { print STDERR "invert strand\n"; }
 print STDERR "chromosome column: ",$chromosome_nr_col, "\n";
-print STDERR "methylation columns: ",$methylation_column, ", ",$methylation_column2,"\n";
-
-print STDERR "apply methylation filter: ",$apply_methylation_filter, "\n";
-print STDERR "methylation range: ",$methylation_range_left, " to ", $methylation_range_right,"\n";
-
+if ($apply_methylation_filter) {
+	print STDERR "apply methylation filter:\n";
+	print STDERR "methylation columns: ",$methylation_column, ", ",$methylation_column2,"\n";
+	print STDERR "methylation range: ",$methylation_range_left, " to ", $methylation_range_right,"\n";	
+}
 print STDERR "selected chromosome: ",$Chromosome, "\n";
 print STDERR "delta_minus: ",$delta_1, "\n";
 print STDERR "delta_plus: ",$delta_2, "\n";
+print STDERR "running window size: $window \n";
 print STDERR "upper occupancy threshold: ",$upper_occup_threshold, "\n";
 print STDERR "lower occupancy threshold: ",$lower_occup_threshold, "\n";
 print STDERR "allowed regions overlap (bp): ",$overlap, "\n";
-print STDERR "remove transcripts on minus-strands: $remove_minus_strand\n";
-print STDERR "ignore strand information (assume all on $fixed_strand): $ignore_strand\n";
-print STDERR "normalized occupancy to a number of TSS: $normalize\n";
-print STDERR "Save aligned occupancy profiles: $save_aligned\n";
-print STDERR "Apply library size normalization: $library_size_normalization\n";
-print STDERR "Normalize by transcripts Nr. per base: $PerBaseNorm\n";
 print STDERR "replace reads by 0 downstream from region end: $Cut_tail\n";
-print STDERR "align regions at the center: $use_centre\n";
-
+if ($use_centre) { print STDERR "align regions at the center\n"; }
+if ($remove_minus_strand) { print STDERR "remove transcripts on minus-strands\n"; }
+if ($ignore_strand) { print STDERR "ignore strand information (assume all on $fixed_strand)\n"; }
+if ($save_aligned) { print STDERR "Save aligned occupancy profiles to tab-delimited text file (GZIP compressed when possible)\n"; }
+print STDERR "------- Normalization options: -------\n";
+if ($normalize) { print STDERR "normalize occupancy to a number of regions starts\n"; }
+if ($GeneLengthNorm) { print STDERR "normalize each region occupancy to the region length\n"; }
+if ($library_size_normalization) { print STDERR "Apply library size normalization\n";}
+if ($PerBaseNorm) { print STDERR "Normalize aggregate profile by regions Nr. at each base\n"; }
+if ($verbose) { print STDERR "\n----------------------------\n print service information to the console\n"; }
 print STDERR "======================================\n";
 
 # exit script if output files exist
@@ -382,7 +379,7 @@ my @GeneIDs = Read_column($GeneId_column,"Region ID",1,\@LIST_array);
 
 my (@Expression,@Methylation_col1,@Methylation_col2,@Methylation);
 
-if ($apply_methylation_filter eq "yes") {
+if ($apply_methylation_filter) {
     @Methylation_col1 = Read_column($methylation_column,"5mC",1,\@LIST_array); # methylated cytosines
     @Methylation_col2 = Read_column($methylation_column2,"CpG",1,\@LIST_array); # all cytosines
     @Methylation = map { $Methylation_col1[$_] / ( $Methylation_col2[$_] + 0.0001 ) } 0..$#Methylation_col1;
@@ -392,7 +389,7 @@ if ($apply_methylation_filter eq "yes") {
 my @strands;
 
 
-if($ignore_strand eq "no") {
+if(! $ignore_strand ) {
     @strands = Read_column($strand_column,"strand", 1, \@LIST_array);
     for (my $i=1; $i<=$#strands; $i++) {
 	
@@ -403,7 +400,7 @@ if($ignore_strand eq "no") {
 }
 else { @strands = ("$fixed_strand") x $#TS_positions; }
 
-if ($invert_strand eq "yes") {
+if ($invert_strand) {
     for (my $i=1; $i<=$#strands; $i++) {
 	
 	if ( ($strands[$i] eq "plus") or ($strands[$i] eq "+") ){ $strands[$i] = "minus";	}
@@ -513,7 +510,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 my $duration = time()-$timer2;
 
 print STDERR " done in ", time()-$timer2, " seconds.\n";
-print STDERR "$false_counter strings from $total_counter fail to load\n";
+print STDERR "$false_counter strings from $total_counter failed to load\n";
 #exit;
 close($inFH) or die $!;
 
@@ -541,11 +538,13 @@ my $removed_byExprFlag=0;
 my $removed_by_methylation_filter=0;
 
 my @length_array;
+print STDERR "processing all chromosomes\n";
 
 foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
     my @occ_array_plus;
     my @occ_array_minus;
     
+	print STDERR "sorting occupancy for chromosome $chrom by coordinate...";
     for my $pos  ( sort { $a<=>$b || $a cmp $b } keys %{ $occupancy{$chrom} } ) {
 	if ($input_occ eq "no") {
 	    $occ_array_plus[$pos] = $occupancy{$chrom}{$pos}{"plus"};
@@ -557,298 +556,294 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 	}
     }
     my $chr_size= keys %{ $occupancy{$chrom} };
-    print STDERR "\nChr $chrom of $chr_size bases...";
+    print STDERR "\nchromosome $chrom of $chr_size bases sorted\nStart processing...";
     
     my $work_progress_step = int($#TS_positions/10);
     my $current_progress = $work_progress_step;
-
-    for (my $j=0; $j<= $#TS_positions; $j++) {
-	my ($position_start, $position_end, $gene_id, $max_occup_counts, $transcript_length);
-	undef @splice_array;
-	#increment counter to display work progress
-	if($current_progress == $j) {print STDERR ".";$current_progress+=$work_progress_step;}
-
-	# check chromosome Nr.
-	$chromosomes[$j] =~ s/E-coli/1/;
-	$chromosomes[$j] =~ s/Mt/mi/;
-	if ($chrom ne $chromosomes[$j]) { next; }
-	if (!$chromosomes[$j]) { next; }
+    for (my $j=0; $j<= $#TS_positions; $j+=$window) {
+		my ($position_start, $position_end, $gene_id, $max_occup_counts, $transcript_length);
+		undef @splice_array;
+		#increment counter to display work progress
+		if($current_progress == $j) {print STDERR ".";$current_progress+=$work_progress_step;}
 	
-	# methylation filter
-	if ($apply_methylation_filter eq "yes") {
-	    if(($Methylation[$j] <= $methylation_range_left) || ($Methylation[$j] >= $methylation_range_right)) { $removed_by_methylation_filter++; next; }
-	}	
-	# check for repetetive transcript IDs.
-	$gene_id = $GeneIDs[$j];
-	if($old_id eq $gene_id) { $removed_byID++; next; }
-	else { $old_id=$gene_id; }    
-
-	# remove genes by expression flags
-	if ((keys %expression_flags) && ($expression_flags {$gene_id} eq $Expression_flag )) { $removed_byExprFlag++; next; }
-     
-	 # remove minus-strand
-	if ($remove_minus_strand eq "yes") {	
-	    if ($strands[$j] eq "minus") { $removed_minus++;  next; }
-	    else { $position_start=$TS_positions[$j]; $position_end=$TE_positions[$j];}
-	}
+		# check chromosome Nr.
+		$chromosomes[$j] =~ s/Mt/mi/;
+		if ($chrom ne $chromosomes[$j]) { $removed_by_chromosome++; next; }
+		if (!$chromosomes[$j]) { next; }
+		
+		# methylation filter
+		if ($apply_methylation_filter) {
+			if(($Methylation[$j] <= $methylation_range_left) || ($Methylation[$j] >= $methylation_range_right)) { $removed_by_methylation_filter++; next; }
+		}	
+		# check for repetetive transcript IDs.
+		$gene_id = $GeneIDs[$j];
+		if($old_id eq $gene_id) { $removed_byID++; next; }
+		else { $old_id=$gene_id; }    
 	
-	if (!$strands[$j]) {
-	    #code
-	    $strands[$j]="plus";
-	}
-	
-	if($old_strand eq $strands[$j]) { $ignore_overlap="no"; }
-	else { $ignore_overlap="yes"; $old_strand=$strands[$j]; }
-
-	
-	my $check_TSS_position;
-	# get transcription start position for plus and minus strand
-	if ($strands[$j] eq "minus") {
-	    $position_start=$TE_positions[$j];
-	    $position_end=$TS_positions[$j];
-	    $check_TSS_position=$old_transcript_start-$overlap;
-	}
-	else {
-	    $position_start=$TS_positions[$j];
-	    $position_end=$TE_positions[$j];
-	    $check_TSS_position=$old_transcript_start+$overlap;
-	}
-	
-	if ($overlap==0) { $ignore_overlap="yes"; }
-	    
-	# remove string if new TSS is to close to old one and transcript are on different strands
-	if ($ignore_overlap eq "no") {
-	    if(( $check_TSS_position > $position_start ) && ($strands[$j] eq "plus")) { $removed_overlap++; $ignore_overlap="yes"; next; }
-	    elsif(( $check_TSS_position < $position_start ) && ($strands[$j] eq "minus")) { $removed_overlap++; $ignore_overlap="yes"; next; }
-	}
-	else { $old_transcript_start=$position_start; $ignore_overlap="yes";}
-	$transcript_length=abs($position_start-$position_end);    
-	
-	#initialize array of 0 of 2*$delta+1 size 
-	# read part of the array @occ_array; leave 0 if empty
-	my ($start_of_region_occ, $end_of_region_occ);
-	my ($start_of_region_splice, $end_of_region_splice);
-	my ($start_shift,$end_shift);
-	my ($old_central_point,$new_central_point);
-	
-	if ($use_centre eq "yes") {
-	    #code
-	    $new_central_point=int(($TE_positions[$j]+$TS_positions[$j])/2);
-	
-	    if($j==0) {$old_central_point=$new_central_point;}
-	    if ($overlap==0) { $ignore_overlap="yes"; }
-	    else  { $ignore_overlap="no"; }
-    
-	    if ($ignore_overlap eq "no") {
-		if(($old_central_point-$overlap < $new_central_point) && ($old_central_point+$overlap > $new_central_point ) )
-		{ $removed_overlap++; $ignore_overlap="yes"; next; }
-	    }
-	    else { $old_central_point=$new_central_point; $ignore_overlap="yes";}
-	
-	    $start_of_region_occ = $new_central_point-$delta_1;
-	    $end_of_region_occ = $new_central_point+$delta_2+1;
-	    $start_of_region_splice=0;
-	    $end_of_region_splice=$delta_1 + $delta_2 +1;
-
-	    for (my $i=0; $i<= $end_of_region_splice; $i++) {
-		my $index=$start_of_region_occ+$i; my $occ_value = $occ_array_plus[$index];
-		if($occ_array_plus[$index]) {
-		    push(@splice_array, $occ_value);
-		    }
-		else { push(@splice_array,0); }
-	    }
-	} else {
-	    if ($Cut_tail eq "yes" ) {
-		if($strands[$j] eq "plus") {
-		    my $shift=min($position_start+$delta_2,$position_end);
-		    
-		    $start_of_region_occ = $position_start-$delta_1;
-		    $end_of_region_occ = $shift+1;
-		    
-		    #shift splice array start if TSS-delta1<0
-		    if ($start_of_region_occ<0) {
-			@splice_array = 0 x abs($start_of_region_occ);
-			$end_of_region_splice=$end_of_region_occ;
-			$start_of_region_occ=0;
-		    }
-		    else {
-			$end_of_region_splice=$end_of_region_occ-$start_of_region_occ;
-		    }
-		    
-		    $start_of_region_splice=0;
-		    
-		    for (my $i=0; $i<= $end_of_region_splice+1; $i++) {
-			if($occ_array_plus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_plus[$start_of_region_occ+$i]); }
-			else { push(@splice_array,0); }
-		    }
-		    
-		    if ($end_of_region_splice < $delta_1+$delta_2+1) {
+		# remove genes by expression flags
+		if ((keys %expression_flags) && ($expression_flags {$gene_id} eq $Expression_flag )) { $removed_byExprFlag++; next; }
+		 
+		 # remove minus-strand
+		if ($remove_minus_strand) {	
+			if ($strands[$j] eq "minus") { $removed_minus++;  next; }
+			else { $position_start=$TS_positions[$j]; $position_end=$TE_positions[$j];}
+		}
+		
+		if (!$strands[$j]) {
 			#code
-			push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
-		    }
-		    
-		    if ($invert_strand eq "yes") {
-			my @temp = @splice_array;
-			@splice_array = reverse(@temp);
-		    }
-		    
+			$strands[$j]="plus";
 		}
-		elsif ($strands[$j] eq "minus") {
-		    # position START and END swapted!!
-		    $start_of_region_occ = max($position_end-$delta_2,$position_start);
-		    $end_of_region_occ=$position_end+$delta_1+1;
-		    
-		    #shift splice array start if TSS-delta1<0
-		    if ($start_of_region_occ<0) {
-			@splice_array = 0 x abs($start_of_region_occ);
-			$end_of_region_splice=$end_of_region_occ;
-			$start_of_region_occ=0;
-		    }
-		    else {
-			$end_of_region_splice=$end_of_region_occ-$start_of_region_occ;
-		    }
-				    
-		    $start_of_region_splice=0;
-		    
-		    for (my $i=0; $i<=$end_of_region_splice+1; $i++) {
-			if($occ_array_minus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_minus[$start_of_region_occ+$i]); }
-			else { push(@splice_array,0); }
-		    }
-				    
-		    if ($invert_strand eq "no") {
-			my @temp = @splice_array;
-			@splice_array = reverse(@temp);
-			if ($end_of_region_splice < $delta_1+$delta_2+1) {
-			    #code
-			    push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+		
+		if($old_strand eq $strands[$j]) { $ignore_overlap="no"; }
+		else { $ignore_overlap="yes"; $old_strand=$strands[$j]; }
+	
+		
+		my $check_TSS_position;
+		# get transcription start position for plus and minus strand
+		if ($strands[$j] eq "minus") {
+			$position_start=$TE_positions[$j];
+			$position_end=$TS_positions[$j];
+			$check_TSS_position=$old_transcript_start-$overlap;
+		}
+		else {
+			$position_start=$TS_positions[$j];
+			$position_end=$TE_positions[$j];
+			$check_TSS_position=$old_transcript_start+$overlap;
+		}
+		
+		if ($overlap==0) { $ignore_overlap="yes"; }
+			
+		# remove string if new TSS is to close to old one and transcript are on different strands
+		if ($ignore_overlap eq "no") {
+			if(( $check_TSS_position > $position_start ) && ($strands[$j] eq "plus")) { $removed_overlap++; $ignore_overlap="yes"; next; }
+			elsif(( $check_TSS_position < $position_start ) && ($strands[$j] eq "minus")) { $removed_overlap++; $ignore_overlap="yes"; next; }
+		}
+		else { $old_transcript_start=$position_start; $ignore_overlap="yes";}
+		$transcript_length=abs($position_start-$position_end);    
+		
+		#initialize array of 0 of 2*$delta+1 size 
+		# read part of the array @occ_array; leave 0 if empty
+		my ($start_of_region_occ, $end_of_region_occ);
+		my ($start_of_region_splice, $end_of_region_splice);
+		my ($start_shift,$end_shift);
+		my ($old_central_point,$new_central_point);
+		
+		if ($use_centre) {
+			#code
+			$new_central_point=int(($TE_positions[$j]+$TS_positions[$j])/2);
+		
+			if($j==0) {$old_central_point=$new_central_point;}
+			if ($overlap==0) { $ignore_overlap="yes"; }
+			else  { $ignore_overlap="no"; }
+		
+			if ($ignore_overlap eq "no") {
+			if(($old_central_point-$overlap < $new_central_point) && ($old_central_point+$overlap > $new_central_point ) )
+			{ $removed_overlap++; $ignore_overlap="yes"; next; }
 			}
-		    }
-		    else {		    
-			if ($end_of_region_splice < $delta_1+$delta_2+1) {
-			    #code
-			    my @temp = @splice_array;
-			    @splice_array = reverse(@temp);
-			    undef @temp;
-			    push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
-			    @temp = @splice_array;
-			    @splice_array = reverse(@temp);
+			else { $old_central_point=$new_central_point; $ignore_overlap="yes";}
+		
+			$start_of_region_occ = $new_central_point-$delta_1;
+			$end_of_region_occ = $new_central_point+$delta_2+1;
+			$start_of_region_splice=0;
+			$end_of_region_splice=$delta_1 + $delta_2 +1;
+	
+			for (my $i=0; $i<= $end_of_region_splice; $i++) {
+			my $index=$start_of_region_occ+$i; my $occ_value = $occ_array_plus[$index];
+			if($occ_array_plus[$index]) {
+				push(@splice_array, $occ_value);
+				}
+			else { push(@splice_array,0); }
 			}
-		    }
-		    
-    
+		} else {
+			if ($Cut_tail eq "yes" ) {
+			if($strands[$j] eq "plus") {
+				my $shift=min($position_start+$delta_2,$position_end);
+				
+				$start_of_region_occ = $position_start-$delta_1;
+				$end_of_region_occ = $shift+1;
+				
+				#shift splice array start if TSS-delta1<0
+				if ($start_of_region_occ<0) {
+				@splice_array = 0 x abs($start_of_region_occ);
+				$end_of_region_splice=$end_of_region_occ;
+				$start_of_region_occ=0;
+				}
+				else {
+				$end_of_region_splice=$end_of_region_occ-$start_of_region_occ;
+				}
+				
+				$start_of_region_splice=0;
+				
+				for (my $i=0; $i<= $end_of_region_splice+1; $i++) {
+				if($occ_array_plus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_plus[$start_of_region_occ+$i]); }
+				else { push(@splice_array,0); }
+				}
+				
+				if ($end_of_region_splice < $delta_1+$delta_2+1) {
+				#code
+				push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+				}
+				
+				if ($invert_strand) {
+				my @temp = @splice_array;
+				@splice_array = reverse(@temp);
+				}
+				
+			}
+			elsif ($strands[$j] eq "minus") {
+				# position START and END swapted!!
+				$start_of_region_occ = max($position_end-$delta_2,$position_start);
+				$end_of_region_occ=$position_end+$delta_1+1;
+				
+				#shift splice array start if TSS-delta1<0
+				if ($start_of_region_occ<0) {
+				@splice_array = 0 x abs($start_of_region_occ);
+				$end_of_region_splice=$end_of_region_occ;
+				$start_of_region_occ=0;
+				}
+				else {
+				$end_of_region_splice=$end_of_region_occ-$start_of_region_occ;
+				}
+						
+				$start_of_region_splice=0;
+				
+				for (my $i=0; $i<=$end_of_region_splice+1; $i++) {
+				if($occ_array_minus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_minus[$start_of_region_occ+$i]); }
+				else { push(@splice_array,0); }
+				}
+						
+				if (!$invert_strand) {
+				my @temp = @splice_array;
+				@splice_array = reverse(@temp);
+				if ($end_of_region_splice < $delta_1+$delta_2+1) {
+					#code
+					push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+				}
+				}
+				else {		    
+				if ($end_of_region_splice < $delta_1+$delta_2+1) {
+					#code
+					my @temp = @splice_array;
+					@splice_array = reverse(@temp);
+					undef @temp;
+					push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+					@temp = @splice_array;
+					@splice_array = reverse(@temp);
+				}
+				}
+				
+		
+			}
+			if ($verbose) {
+				print STDERR join("\t","$j: $strands[$j]", $gene_id, $chrom , $chromosomes[$j], "TSS: $position_start", "TTS: $position_end", "TSS-delta1: $start_of_region_occ","TTS/TSS+delta2: $end_of_region_occ","$start_of_region_splice","$end_of_region_splice"),"\t";
+				print STDERR "$#splice_array\n";
+			}
+			}
+			
+			elsif ($Cut_tail eq "no" ) {
+			$start_of_region_splice=0;
+			$end_of_region_splice=$delta_1+$delta_2+1;
+		
+			if ($strands[$j] eq "plus") {
+				
+				$start_of_region_occ = $position_start-$delta_1;
+				$end_of_region_occ = $position_start+$delta_2+1;
+				
+				for (my $i=0; $i<= $end_of_region_splice; $i++) {
+				if($occ_array_plus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_plus[$start_of_region_occ+$i]); }
+				else { push(@splice_array,0); }
+				}
+				if ($verbose) {
+				print STDERR join("\t","$j: $strands[$j]", $gene_id,  $chrom , $chromosomes[$j], "TTS: $position_start", "TSS: $position_end", "TTS/TSS-delta2: $start_of_region_occ","TTS+delta1: $end_of_region_occ","$start_of_region_splice","$end_of_region_splice"),"\t";
+				}
+			}
+			elsif ($strands[$j] eq "minus") {
+				$start_of_region_occ = $position_start-$delta_2;
+				$end_of_region_occ= $position_end+$delta_1+1;
+				
+				for (my $i=0; $i<=$end_of_region_splice; $i++) {
+				if($occ_array_minus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_minus[$start_of_region_occ+$i]); }
+				else { push(@splice_array,0); }
+				}
+				
+				my @temp = @splice_array;
+				@splice_array = reverse(@temp);
+				
+				if ($verbose) {
+				print STDERR join("\t","$j: $strands[$j]", $gene_id, "\t",  $chrom , $chromosomes[$j], "TTS: $position_start", "TSS: $position_end", "TTS/TSS-delta2: $start_of_region_occ","TTS+delta1: $end_of_region_occ","$start_of_region_splice","$end_of_region_splice"),"\t";
+				}
+			} 
+			}
+	
 		}
-		if ($verbose==1) {
-		    print STDERR join("\t","$j: $strands[$j]", $gene_id, $chrom , $chromosomes[$j], "TSS: $position_start", "TTS: $position_end", "TSS-delta1: $start_of_region_occ","TTS/TSS+delta2: $end_of_region_occ","$start_of_region_splice","$end_of_region_splice"),"\t";
-		    print STDERR "$#splice_array\n";
+		
+		# check for artefacts
+		$max_occup_counts = max(@splice_array);
+		if (($max_occup_counts > $upper_occup_threshold) or ($max_occup_counts < $lower_occup_threshold)){ $removed_threshold++; next; }
+			
+		# normalize
+		if ($GeneLengthNorm) {
+			#code
+			my $total_reads_per_transcript;
+			$total_reads_per_transcript += $_ for @splice_array;
+			my $norm_factor=$total_reads_per_transcript/$transcript_length;
+			if ((!$total_reads_per_transcript) or ($total_reads_per_transcript == 0)) { @splice_array = (0) x ($delta_1+$delta_2+1); }
+			else {
+			my @temp_array = map { $_ / $norm_factor } @splice_array;
+			undef @splice_array;
+			@splice_array=@temp_array;
+			}
 		}
-	    }
-	    
-	    elsif ($Cut_tail eq "no" ) {
-		$start_of_region_splice=0;
-		$end_of_region_splice=$delta_1+$delta_2+1;
-    
-		if ($strands[$j] eq "plus") {
-		    
-		    $start_of_region_occ = $position_start-$delta_1;
-		    $end_of_region_occ = $position_start+$delta_2+1;
-		    
-		    for (my $i=0; $i<= $end_of_region_splice; $i++) {
-			if($occ_array_plus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_plus[$start_of_region_occ+$i]); }
-			else { push(@splice_array,0); }
-		    }
-		    if ($verbose==1) {
-			print STDERR join("\t","$j: $strands[$j]", $gene_id,  $chrom , $chromosomes[$j], "TTS: $position_start", "TSS: $position_end", "TTS/TSS-delta2: $start_of_region_occ","TTS+delta1: $end_of_region_occ","$start_of_region_splice","$end_of_region_splice"),"\t";
-		    }
+		
+		
+		if($library_size_normalization) {
+			my $norm_factor=$library_size/1000000;
+			if ((!$norm_factor) or ($norm_factor == 0)) { @splice_array = (0) x ($delta_1+$delta_2+1); }
+			else {
+			my @temp_array = map { $_ / $norm_factor } @splice_array;
+			undef @splice_array;
+			@splice_array=@temp_array;
+			#print STDERR $norm_factor,"\t";
+			}
+			}
+	
+		
+		if($apply_DivSum_normalization eq "yes") {
+			my $norm_factor += $_ for @splice_array;
+			if ($norm_factor == 0) { @splice_array = (0) x ($delta_1+$delta_2+1); }
+			else {
+				my @temp_array = map { $_ / $norm_factor } @splice_array;
+				undef @splice_array;
+				@splice_array=@temp_array;
+				#print STDERR $norm_factor,"\t";
+				}
+			}
+		
+		my $temp_string;
+		if ($calc_score) {
+			my $RPM = sum(@splice_array)/(1000000*$library_size);
+			$temp_string = join("\t", $gene_id, $transcript_length, $RPM);
 		}
-		elsif ($strands[$j] eq "minus") {
-		    $start_of_region_occ = $position_start-$delta_2;
-		    $end_of_region_occ= $position_end+$delta_1+1;
-		    
-		    for (my $i=0; $i<=$end_of_region_splice; $i++) {
-			if($occ_array_minus[$start_of_region_occ+$i]) { push(@splice_array, $occ_array_minus[$start_of_region_occ+$i]); }
-			else { push(@splice_array,0); }
-		    }
-		    
-		    my @temp = @splice_array;
-		    @splice_array = reverse(@temp);
-		    
-		    if ($verbose==1) {
-			print STDERR join("\t","$j: $strands[$j]", $gene_id, "\t",  $chrom , $chromosomes[$j], "TTS: $position_start", "TSS: $position_end", "TTS/TSS-delta2: $start_of_region_occ","TTS+delta1: $end_of_region_occ","$start_of_region_splice","$end_of_region_splice"),"\t";
-		    }
-		} 
-	    }
-
+		else {
+			$temp_string = join("\t", $gene_id, $transcript_length, @splice_array);
+		}
+	
+		push (@output_array, $temp_string);
+		
+		$temp_string = join("\t", $gene_id, $chromosomes[$j], $strands[$j], $start_of_region_occ, $end_of_region_occ, $end_of_region_occ-$start_of_region_occ , $TS_positions[$j], $TE_positions[$j], $transcript_length, $#splice_array);
+		push (@output_array2, $temp_string);
+		
+		#increment each element of positioning array
+		for (my $i=0; $i<= $#splice_array; $i++) {
+			$average_occ_freq_distr[$i] += $splice_array[$i];
+			$non_zero_counter[$i]++;
+		}
+		$genes_counter++;
+		push(@length_array, $transcript_length);
+		#print STDERR "$temp_string\n";
 	}
-	
-	# check for artefacts
-	$max_occup_counts = max(@splice_array);
-	if (($max_occup_counts > $upper_occup_threshold) or ($max_occup_counts < $lower_occup_threshold)){ $removed_threshold++; next; }
-	 	
-	# normalize
-	if ($GeneLengthNorm eq "yes") {
-	    #code
-	    my $total_reads_per_transcript;
-	    $total_reads_per_transcript += $_ for @splice_array;
-	    my $norm_factor=$total_reads_per_transcript/$transcript_length;
-	    if ((!$total_reads_per_transcript) or ($total_reads_per_transcript == 0)) { @splice_array = (0) x ($delta_1+$delta_2+1); }
-	    else {
-		my @temp_array = map { $_ / $norm_factor } @splice_array;
-		undef @splice_array;
-		@splice_array=@temp_array;
-	    }
-	}
-	
-	
-	if($library_size_normalization eq "yes") {
-	    my $norm_factor=$library_size/1000000;
-	    if ((!$norm_factor) or ($norm_factor == 0)) { @splice_array = (0) x ($delta_1+$delta_2+1); }
-	    else {
-		my @temp_array = map { $_ / $norm_factor } @splice_array;
-		undef @splice_array;
-		@splice_array=@temp_array;
-	    #print STDERR $norm_factor,"\t";
-	    }
-        }
-
-	
-	if($apply_DivSum_normalization eq "yes") {
-	    my $norm_factor += $_ for @splice_array;
-	    if ($norm_factor == 0) { @splice_array = (0) x ($delta_1+$delta_2+1); }
-	    else {
-		my @temp_array = map { $_ / $norm_factor } @splice_array;
-	    undef @splice_array;
-	    @splice_array=@temp_array;
-	    #print STDERR $norm_factor,"\t";
-	    }
-        }
-	
-	my $temp_string;
-	if ($calc_score eq "yes") {
-	    my $RPM = sum(@splice_array)/(1000000*$library_size_normalization);
-	    $temp_string = join("\t", $gene_id, $transcript_length, $RPM);
-	}
-	else {
-	    $temp_string = join("\t", $gene_id, $transcript_length, @splice_array);
-	}
-
-	push (@output_array, $temp_string);
-	
-	$temp_string = join("\t", $gene_id, $chromosomes[$j], $strands[$j], $start_of_region_occ, $end_of_region_occ, $end_of_region_occ-$start_of_region_occ , $TS_positions[$j], $TE_positions[$j], $transcript_length, $#splice_array);
-	push (@output_array2, $temp_string);
-	
-	#increment each element of positioning array
-	for (my $i=0; $i<= $#splice_array; $i++) {
-	    $average_occ_freq_distr[$i] += $splice_array[$i];
-	    $non_zero_counter[$i]++;
-	}
-	$genes_counter++;
-	push(@length_array, $transcript_length);
-	#print STDERR "$temp_string\n";
-    }
-    
-    undef @occ_array_plus;
-    undef @occ_array_minus;
-
+	undef @occ_array_plus;
+	undef @occ_array_minus;
 }
 
 my @results;
@@ -859,7 +854,7 @@ for (my $i=0; $i<=$#average_occ_freq_distr; $i++) {
 }
 
 # generate average occupancy distribution
-if ( $normalize eq "yes" ) {
+if ( $normalize ) {
 	for (my $k=0;$k<=$#average_occ_freq_distr; $k++ ) {
 	    my $normalized_occup_summ = $average_occ_freq_distr[$k] / $non_zero_counter[$k];
 	    push(@results,$normalized_occup_summ);
@@ -873,9 +868,9 @@ undef @results;
 
 #normalize to transcript nr at each base
 #@TrasncriptsNr_perBase
-if ( $PerBaseNorm eq "yes" ) {
+if ( $PerBaseNorm ) {
 	for (my $k=0;$k<=$#average_occ_freq_distr; $k++ ) {
-	    if ($verbose==1) {
+	    if ($verbose) {
 		print STDERR "$k:\t$average_occ_freq_distr[$k]\t$TrasncriptsNr_perBase[$k]\t";
 	    }
 	    if ($TrasncriptsNr_perBase[$k] == 0) {
@@ -884,7 +879,7 @@ if ( $PerBaseNorm eq "yes" ) {
 	    }
 	    
 	    my $normalized_occup_summ = $average_occ_freq_distr[$k] / $TrasncriptsNr_perBase[$k];
-	    if ($verbose==1) {
+	    if ($verbose) {
 		print STDERR "$normalized_occup_summ\n";
 	    }
 	    push(@results,$normalized_occup_summ);
@@ -894,7 +889,7 @@ else { @results = @average_occ_freq_distr; }
 
 
 # writing outputs
-if ($save_aligned eq "yes") {
+if ($save_aligned) {
     @output_array = grep /\S/, @output_array;
 	
 	# open pipe to Gzip or open text file for writing
@@ -921,10 +916,32 @@ if ($save_aligned eq "yes") {
 }
 
 open (AveragedFile, ">$out_path2") or die "can't open file $out_path2 for writting: $!";
-print AveragedFile join("\n", @results),"\n";
+my $first_shift =  first { $results[$_] == max(@results) } 0..$#results;
+if($use_centre) {
+	for (my $k=$window; $k<=$#results; $k+=$window) {
+		my $new_central_point=int(($k+$k-$window)/2);
+		my $sum=sum(@results[$k-$window..$k]);
+		my $average = $sum/$window;
+		print AveragedFile $new_central_point,"\t",$average,"\n";
+	}
+}
+else {
+	for (my $k=0; $k<=$#results; $k+=$window) {
+		my ($value, $coord);
+		if ($window > 1) {
+			$coord=$k+$first_shift;
+			$value=$results[$coord];
+		} else {
+			$coord=$k;
+			$value=$results[$k];
+		}
+		print AveragedFile $coord,"\t",$value,"\n";
+	}
+}
+
 close(AveragedFile);
 
-print STDERR "done\n$#output_array transcription starts has been identified.\n\n",
+print STDERR "done\n\n$#output_array transcription starts has been identified.\n\n",
 "Removed transcripts:\n",
 "minus strand: $removed_minus\n",
 "TSS overlap: $removed_overlap\n",
