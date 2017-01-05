@@ -917,12 +917,17 @@ if ($save_aligned) {
 
 open (AveragedFile, ">$out_path2") or die "can't open file $out_path2 for writting: $!";
 my $first_shift =  first { $results[$_] == max(@results) } 0..$#results;
+
+# generate coordinates
+my @coords;
+for (my $i=-$delta_1;$i<=$delta_2;$i++) { push (@coords, $i); }
+
 if($use_centre) {
 	for (my $k=$window; $k<=$#results; $k+=$window) {
 		my $new_central_point=int(($k+$k-$window)/2);
 		my $sum=sum(@results[$k-$window..$k]);
 		my $average = $sum/$window;
-		print AveragedFile $new_central_point,"\t",$average,"\n";
+		print AveragedFile $coords[$new_central_point],"\t",$average,"\n";
 	}
 }
 else {
@@ -935,7 +940,7 @@ else {
 			$coord=$k;
 			$value=$results[$k];
 		}
-		print AveragedFile $coord,"\t",$value,"\n";
+		print AveragedFile $coords[$coord],"\t",$value,"\n";
 	}
 }
 
