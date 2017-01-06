@@ -916,7 +916,7 @@ if ($save_aligned) {
 }
 
 open (AveragedFile, ">$out_path2") or die "can't open file $out_path2 for writting: $!";
-my $first_shift =  first { $results[$_] == max(@results) } 0..$#results;
+my $first_shift =  first { $results[$_] >0 } 0..$#results;
 
 # generate coordinates
 my @coords;
@@ -932,15 +932,10 @@ if($use_centre) {
 }
 else {
 	for (my $k=0; $k<=$#results; $k+=$window) {
-		my ($value, $coord);
-		if ($window > 1) {
-			$coord=$k+$first_shift;
-			$value=$results[$coord];
-		} else {
-			$coord=$k;
-			$value=$results[$k];
-		}
-		print AveragedFile $coords[$coord],"\t",$value,"\n";
+		my ($value);
+		if ($window > 1) { $value=$results[$k+$first_shift]; }
+		else { $value=$results[$k]; }
+		print AveragedFile $coords[$k],"\t",$value,"\n";
 	}
 }
 
