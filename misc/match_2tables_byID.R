@@ -15,14 +15,14 @@ pacman::p_load( optparse )
 
 # read command line arguments
 option_list = list(
-  make_option("--input1", type="character", default=NULL, 
-              help="Occupancy matrix 1", metavar="character"),
+  make_option("--input1", type="file", default=NULL, 
+              help="Occupancy matrix 1", metavar="file name"),
   make_option("--input2", type="character", default=NULL, 
-              help="Occupancy matrix 2", metavar="character"),
+              help="Occupancy matrix 2", metavar="file name"),
   make_option("--output1", type="character", default="out1.occ.txt", 
-              help="Sorted and matched occupancy matrix 1", metavar="character"),
+              help="Sorted and matched occupancy matrix 1", metavar="file name"),
   make_option("--output2", type="character", default="out2.occ.txt", 
-              help="Sorted and matched occupancy matrix 2", metavar="character"),
+              help="Sorted and matched occupancy matrix 2", metavar="file name"),
   make_option("--dir", type="character", default=NULL, 
               help="path to working directory", metavar="path")
 ); 
