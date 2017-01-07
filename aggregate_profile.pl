@@ -545,7 +545,7 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
     my @occ_array_minus;
     
 	print STDERR "sorting occupancy for chromosome $chrom by coordinate...";
-    for my $pos  ( sort { $a<=>$b || $a cmp $b } keys %{ $occupancy{$chrom} } ) {
+    for my $pos  ( sort { $a<=>$b } keys %{ $occupancy{$chrom} } ) {
 	if ($input_occ eq "no") {
 	    $occ_array_plus[$pos] = $occupancy{$chrom}{$pos}{"plus"};
 	    $occ_array_minus[$pos] = $occupancy{$chrom}{$pos}{"minus"};
@@ -564,7 +564,8 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 		my ($position_start, $position_end, $gene_id, $max_occup_counts, $transcript_length);
 		undef @splice_array;
 		#increment counter to display work progress
-		if($current_progress == $j) {print STDERR ".";$current_progress+=$work_progress_step;}
+		if ($verbose) { print STDERR "$j: $GeneIDs[$j] $TS_positions[$j] $TE_positions[$j]\n"; }
+		elsif($current_progress == $j) {print STDERR ".";$current_progress+=$work_progress_step;}
 	
 		# check chromosome Nr.
 		$chromosomes[$j] =~ s/Mt/mi/;
@@ -685,8 +686,9 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 				}
 				
 				if ($invert_strand) {
-				my @temp = @splice_array;
-				@splice_array = reverse(@temp);
+					my @temp = @splice_array;
+					@splice_array = reverse(@temp);
+					undef @temp;
 				}
 				
 			}
@@ -713,23 +715,24 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 				}
 						
 				if (!$invert_strand) {
-				my @temp = @splice_array;
-				@splice_array = reverse(@temp);
-				if ($end_of_region_splice < $delta_1+$delta_2+1) {
-					#code
-					push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
-				}
-				}
-				else {		    
-				if ($end_of_region_splice < $delta_1+$delta_2+1) {
-					#code
 					my @temp = @splice_array;
 					@splice_array = reverse(@temp);
-					undef @temp;
-					push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
-					@temp = @splice_array;
-					@splice_array = reverse(@temp);
+					if ($end_of_region_splice < $delta_1+$delta_2+1) {
+						#code
+						push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+					}
 				}
+				else {		    
+					if ($end_of_region_splice < $delta_1+$delta_2+1) {
+						#code
+						my @temp = @splice_array;
+						@splice_array = reverse(@temp);
+						undef @temp;
+						push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+						@temp = @splice_array;
+						@splice_array = reverse(@temp);
+						undef @temp;
+					}
 				}
 				
 		
@@ -766,9 +769,10 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 				else { push(@splice_array,0); }
 				}
 				
-				my @temp = @splice_array;
-				@splice_array = reverse(@temp);
-				
+				my @temp_array = @splice_array;
+				@splice_array = reverse(@temp_array);
+				undef @temp_array;
+
 				if ($verbose) {
 				print STDERR join("\t","$j: $strands[$j]", $gene_id, "\t",  $chrom , $chromosomes[$j], "TTS: $position_start", "TSS: $position_end", "TTS/TSS-delta2: $start_of_region_occ","TTS+delta1: $end_of_region_occ","$start_of_region_splice","$end_of_region_splice"),"\t";
 				}
@@ -792,6 +796,7 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 			my @temp_array = map { $_ / $norm_factor } @splice_array;
 			undef @splice_array;
 			@splice_array=@temp_array;
+			undef @temp_array;
 			}
 		}
 		
@@ -803,9 +808,9 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 			my @temp_array = map { $_ / $norm_factor } @splice_array;
 			undef @splice_array;
 			@splice_array=@temp_array;
-			#print STDERR $norm_factor,"\t";
+			undef @temp_array;
 			}
-			}
+		}
 	
 		
 		if($apply_DivSum_normalization eq "yes") {
@@ -815,7 +820,7 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 				my @temp_array = map { $_ / $norm_factor } @splice_array;
 				undef @splice_array;
 				@splice_array=@temp_array;
-				#print STDERR $norm_factor,"\t";
+				undef @temp_array;
 				}
 			}
 		
@@ -825,6 +830,17 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 			$temp_string = join("\t", $gene_id, $transcript_length, $RPM);
 		}
 		else {
+			if ($window > 1) {
+				my @temp_array;
+				for (my $k=$window; $k<=$#splice_array; $k+=$window) {
+					my $sum=sum(@splice_array[$k-$window..$k]);
+					my $average = $sum/$window;
+					push (@temp_array, $average);
+				}
+				undef @splice_array;
+				@splice_array = @temp_array;
+				undef @temp_array;
+			}
 			$temp_string = join("\t", $gene_id, $transcript_length, @splice_array);
 		}
 	
@@ -898,9 +914,11 @@ if ($save_aligned) {
 	if ($useGZ) {
 		$out_file =~ s/(.*)\.gz$/$1/;
 		my $gz_out_file = $out_file.".gz";
+		print STDERR "\nsaving aligned occupancy matrix to $gz_out_file\n";
 		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 	}
 	else {
+		print STDERR "\nsaving aligned occupancy matrix to $out_path1\n";
 		open $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
 	}
 
@@ -915,28 +933,16 @@ if ($save_aligned) {
 
 }
 
+print STDERR "\nsaving aggregate profile matrix to $out_path2\n";
 open (AveragedFile, ">$out_path2") or die "can't open file $out_path2 for writting: $!";
 my $first_shift =  first { $results[$_] >0 } 0..$#results;
 
 # generate coordinates
 my @coords;
-for (my $i=-$delta_1;$i<=$delta_2;$i++) { push (@coords, $i); }
+for (my $i=-$delta_1;$i<=$delta_2;$i+=$window) { push (@coords, $i); }
 
-if($use_centre) {
-	for (my $k=$window; $k<=$#results; $k+=$window) {
-		my $new_central_point=int(($k+$k-$window)/2);
-		my $sum=sum(@results[$k-$window..$k]);
-		my $average = $sum/$window;
-		print AveragedFile $coords[$new_central_point],"\t",$average,"\n";
-	}
-}
-else {
-	for (my $k=0; $k<=$#results; $k+=$window) {
-		my ($value);
-		if ($window > 1) { $value=$results[$k+$first_shift]; }
-		else { $value=$results[$k]; }
-		print AveragedFile $coords[$k],"\t",$value,"\n";
-	}
+for (my $k=0; $k<=$#results; $k++) {
+	print AveragedFile $coords[$k],"\t",$results[$k],"\n";
 }
 
 close(AveragedFile);
