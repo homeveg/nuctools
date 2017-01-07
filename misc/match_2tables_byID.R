@@ -50,8 +50,6 @@ if (is.null(opt$dir)){
 wd <- opt$dir
 
 
-#load metagene table
-
 #TSS
 in_files <- c(paste(wd,opt$input1,sep="/"),paste(wd,opt$input2,sep="/") )
 out_files <- c(  paste(wd,opt$output1,sep="/"),paste(wd,opt$output2,sep="/") )
