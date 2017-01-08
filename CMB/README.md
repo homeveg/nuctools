@@ -8,6 +8,8 @@ If you find new bugs please contact y.vainshtein@zmbh.uni-heidelberg.de
 
 ## Introduction
 
+![ClusterMapBuilder](https://github.com/homeveg/nuctools/blob/master/stylesheets/splash.png)
+
 Cluster Maps Builder (CMB) is primarily designed to visualize nucleosome
 occupancy profiles of thousands of features aligned at genomic coordinate
 corresponding to a specific feature, like transcription factor binding site or
