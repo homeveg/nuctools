@@ -1,13 +1,11 @@
-# NucTools bash files
+# NucTools manuscript bash files
+
+These are bash files used to call NocTools scripts in the test case (nucleosome occupancy in mouse embryonic stem cells and their differentiated counterparts) considered in the manuscript describing the NocTools package:
+
+Yevhen Vainshtein, Karsten Rippe and Vladimir B. Teif (2017) "NucTools: analysis of chromatin feature occupancy profiles from high-throughput sequencing data" (submitted)
 
 ## Disclaimer
-
-The following collection of bash scripts are the bash files used in the preparation of figures of the
-manuscript 
-"NucTools: analysis of chromatin feature occupancy profiles from high-throughput sequencing data", 
-Yevhen Vainshtein, Karsten Rippe and Vladimir B. Teif (submitted)
-
-Scripts are not optimized and does not support any extended features and distributed as is to accompany the submiting of a paper. 
+Scripts are not optimized and distributed as is to accompany the submitted manuscript. 
 
 -------------------------------------------------------------
 ### Developers: 
