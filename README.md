@@ -1,49 +1,44 @@
-# NucTools 2.0
+# NucTools
 
-## NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
+## NucTools is a software package for the analysis of chromatin feature occupancy profiles from high-throughput sequencing data
  
-Recent advancements in high-throughput sequencing methods create a vast amount of data in which numerous chromatin features are mapped along the genome. The results are frequently analysed by creating binary data sets that link the presence/absence of a given readout to specific genomic loci. It is currently a challenge in the field to cope with continuous distributions of deep sequencing chromatin readouts, and to integrate the different types of datasets to reveal linkages between them. Here we introduce the NucTools suite of Perl scripts and a stand-alone visualisation program for a nucleosome-centered downstream analysis of deep sequencing data. NucTools accounts for the continuous distribution of nucleosome occupancy. Furthermore, it is useful to associate nucleosome occupancy with other chromatin features like transcription factor binding, histone modifications or DNA methylation.
+Biomedical applications of high-throughput sequencing methods generate a vast amount of data in which numerous chromatin features are mapped along the genome. The results are frequently analysed by creating binary data sets that link the presence/absence of a given feature to specific genomic loci. However, the nucleosome occupancy or chromatin accessibility landscape is essentially continuous. It is currently a challenge in the field to cope with continuous distributions of deep sequencing chromatin readouts and to integrate the different types of discrete chromatin features to reveal linkages between them. Here we introduce the NucTools suite of Perl scripts as well as MATLAB- and R-based visualization programs for a nucleosome-centred downstream analysis of deep sequencing data. NucTools accounts for the continuous distribution of nucleosome occupancy. It allows calculations of nucleosome occupancy profiles averaged over several replicates, comparisons of nucleosome occupancy landscapes between different experimental conditions, and the estimation of the changes of integral chromatin properties such as the nucleosome repeat length. Furthermore, NucTools facilitates the annotation of nucleosome occupancy with other chromatin features like binding of transcription factors or architectural proteins, and epigenetic marks like histone modifications or DNA methylation.
 
 -------------------------------------------------------------------
 ## SYSTEM REQUIREMENT
 
-Linux (2.6 kernel or later), Windows 7 x32/64 or Mac (OSX 10.6 Snow Leopard or later) operating system
-with minimal 16 GB of RAM is recommended*. Perl v5.8 or above is required.
+Linux (2.6 kernel or later), Windows 7 x32/64 or Mac (OSX 10.6 Snow Leopard or later) operating system with minimal 16 GB of RAM is recommended*. Perl v5.8 or above is required.
 
-The C/C++ compiling environment might be required for installing dependencies, such as bedtools. Systems may vary.
-Please assure that your system has the essential software building packages (e.g. build-essential
-for Fedora, XCODE for Mac...etc) installed properly before running the installing 
-script.
+The C/C++ compiling environment might be required for installing dependencies, such as bedtools. Systems may vary. Please assure that your system has the essential software building packages (e.g. build-essential for Fedora, XCODE for Mac...etc) installed properly before running the installing scripts.
 
-NucTools was tested successfully on our Linux servers (CentOS release 6.7 w/ Perl v5.10.1; 
-Fedora release 22 w/ Perl v5.20.3), Macbook Pro laptops (MAC OSX 10.11 w/ XCODE v5.1, 8GB RAM, 4 cores processor), Lenovo ThinkPad laptop (Windows 7, 8Gb RAM, 4 cores processor)
+NucTools was tested successfully on our Linux servers (CentOS release 6.7 w/ Perl v5.10.1; Fedora release 22 w/ Perl v5.20.3), Macbook Pro laptops (MAC OSX 10.11 w/ XCODE v5.1, 8GB RAM, 4 cores processor), Lenovo ThinkPad laptop (Windows 7, 8Gb RAM, 4 cores processor)
 
-*Memory requirements depend on the experimental system. For big genomes performance will increase greatly on machines with more memory. For example, processing of 22 mouse chromosomes, with the sequencing library size about 75 000 000 reads occupy at peak load around 60-70 Gb of RAM. Important to mention, the performance is very dependent on HDD read-write speed. Therefore the parallel running of many samples at once recommended only on the server-like system or computational clusters with RAID arrays, allowing real multithreaded read-write access to HDDs array.
+*Memory requirements depend on the experimental system. For big genomes the performance will increase greatly on machines with more memory. For example, the processing of all mouse chromosomes, with the sequencing library size about 75 000 000 reads occupy at the peak load around 60-70 Gb of RAM. It is important to mention that the performance is very dependent on the HDD read-write speed. Therefore the running of many samples in parallel is recommended only on the server-like system or computational clusters with RAID arrays, allowing real multithreaded read-write access to HDDs array.
 
 -------------------------------------------------------------------
 ## QUICK START 
 
-This is an example of profiling a "test.bed" file using NucTools. The testing BED file comes along with the NucTools package
-in the "test" directory. More details are stated in the INSTRUCTION section.
+This is an example of profiling a "test.bed" file using NucTools. The test BED file comes along with the NucTools package
+in the "test" directory. More details can be found in the INSTRUCTION section.
 
 1. Obtaining NucTools package:
    
         $ git clone https://github.com/homeveg/nuctools.git NucTools
    
 2. Installing NucTools:
-        the NucTools package does not require installation. It is a collection of individual Perl scripts which can be executed individually.
+        the NucTools package does not require installation. It is a collection of individual scripts which can be executed individually.
 
-3. Generate a genome annotation table using provided R script:
+3. Generate a genome annotation table using the provided R script:
    
         $ Rscript misc/LoadAnnotation.BioMart.R
 
 4. Prepare BED files from BAM files with external application (optionally)
 
-   a. merge multiple replicates to one BAM file and sort by reads name:
+   a. merge multiple replicates to one BAM file and sort by read names:
     
         $ samtools merge -n /Path_to_folder_with/BAM/test_sorted.bam /Path_to_folder_with/BAM/test.rp1.bam /Path_to_folder_with/BAM/test.rp2.bam /Path_to_folder_with/BAM/test.rp3.bam
 
-   b. converted sorted BAM file to BED using bowtie2bed.pl script or with external app bedtools:
+   b. convert sorted BAM files to BED using bowtie2bed.pl script (or alternatively with an external package bedTools):
    
         $ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
         $ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz > /Path_to_folder_with/BED/test_sorted.bed.gz
@@ -52,7 +47,8 @@ in the "test" directory. More details are stated in the INSTRUCTION section.
    a. Extend single-end reads to the average DNA fragment size
    
         $ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz -fL 147
-   b. Extract individual chromosomes from whole genome BED
+        
+   b. Extract individual chromosomes from the whole-genome BED file
    
         $ extract_chr_bed.pl -in test.ext.bed.gz -out test -d /Path_to_folder_with/BED/ -p chr 
         
@@ -82,9 +78,7 @@ Visualize aggregate profiles and run K-mean cluster analysis on aligned occupanc
 -------------------------------------------------------------------
 ### Installation
 
-the NucTools suite for a nucleosome-centered downstream analysis of deep sequencing data is primarily Perl-based, and require at least Perl v5.8 with dependencies installed properly (listed in README_FULL.md).
-A visualisation program is written on MatLab and requires either full MatLab installation or can be provided as a standalone application with web-installer compiled for Windows 7.
-NucTools utilize whole genome [BED](https://genome.ucsc.edu/FAQ/FAQformat#format1) files.
+the NucTools suite for a nucleosome-centered downstream analysis of deep sequencing data is primarily Perl-based, and requires at least Perl v5.8 with dependencies installed properly (listed in README_FULL.md). A visualisation program that comes with NucTools is written on MatLab and requires either full MatLab installation or can be provided as a standalone application with web-installer compiled for Windows 7. NucTools utilize whole genome [BED](https://genome.ucsc.edu/FAQ/FAQformat#format1) files.
 
 **Optional external applications:**
     
@@ -95,11 +89,9 @@ NucTools utilize whole genome [BED](https://genome.ucsc.edu/FAQ/FAQformat#format
 -------------------------------------------------------------------
 ### Running NucTools
 
-One can divide the NucTools pipeline to 3 major steps: (1) prepare input OCC files (2) calculate aggregate profiles and aligned occupancy matrixes (3) follow-up analysis and results visualization. 
-For the moment we don't have a wrapper to run all 3 steps automatically so, each step should be executed separately and, in turn, consists of several intermediate steps.
+A typical analysis workflow using NucTools consists of the following steps (see the figure): BAM/SAM files with raw mapped reads are converted to BED format (bowtie2bed.pl), processed to obtain nucleosome-sized reads (extend_SE_reads.pl or extend_PE_reads.pl), and split into chromosomes (extract_chr_bed.pl). Usually, a separate directory with chromosome bed files is created for each sample similarly to the HOMER’s approach. Then chromosome-wide occupancies are calculated and average using a window size suitable for the following analysis (bed2occupancy_average). Then for each cell type/state, an average profile is calculated based on the individual replicate profiles (average_replicates.pl). After this point several types of analysis can be performed in parallel: Finding stable/unstable regions (stable_nucs_replicates.pl); comparing replicate-averaged profiles in different cell states/types (compare_two_conditions.pl); calculating nucleosome occupancy profiles at individual regions identified based on the intersection of stable/unstable regions or regions with differential occupancy with genomic features such as promoters, enhancers, etc (extract_rows_occup.pl); calculating the nucleosome repeat length (nucleosome_repeat_length.pl and plotNRL.R); calculating aggregate profiles or visualizing heat maps of nucleosome occupancy at different genomic features (ClusterMap_Builder). The next types of analysis usually involve gene ontology, multiple-dataset correlations and DNA sequence motif analysis, which can be conducted for the genomic regions of interest identified at the previous steps using external software packages.
 
-We are not providing any test data set with our package because of constrains put by the study object. The typical data set compatible with nucleosome positioning analysis should contain whole genome sequencing data with a good coverage (At least 100 million of reads per sample). Such datasets are available online for download in public repositories such as NCBI GEO (https://www.ncbi.nlm.nih.gov/geo/) See our linked paper for more details.
-All examples below are made of with virtual input BAM file "test.bam" which we use to run through a NucTools pipeline:
+The examples below refer to an artificially created input BAM file "test.bam" which we use to run through a NucTools pipeline:
 
         $ samtools sort -n ./test/test_sorted.bam ./test/test.bam
         $ bowtie2bed.pl -i ./test/test_sorted.bam --verbose > ./test/test_sorted.bed.gz
@@ -108,13 +100,7 @@ All examples below are made of with virtual input BAM file "test.bam" which we u
         $ bed2occupancy_average.pl -in ./test/BED -odir ./test/OCC -dir -use -w 10
         $ aggregate_profile.pl -reg genome_annotation.txt -idC 0 -chrC 4 -strC 7 -sC 8 -eC 9 -pbN -lsN -lS 75000000 -chr 1 -al ./test/OCC/chr1.test.occ_matrix -av ./test/OCC/chr1.test.aggregate -in ./test/OCC/chr1.test.w10.occ.gz -upD 1000 -downD 1000
 
-In the example above test.bam file is sorted by the reads names and converted to test_sorted.bed.gz file. As long as in the example case we are dealing with single-end ilumina sequencing reads, with expected read length of 100, we extend each read to the length of 150 using extend_SE_reads.pl. Resulting whole genome BED file is divided to chromosomes with extract_chr_bed.pl script and all per-chromosome bed files are converted to OCC files with bed2occupancy_average.pl, using running window 10 (use -w 0 for per-base resolution). Last step is to generate an aggregate profiles using aggregate_profile.pl script 
-
--------------------------------------------------------------------
-### Interpreting Results
-
-NucTools bed2occupancy_average.pl script generates 2 types of the output. One file contains two column of numbers, corresponding to coordinates relative to the middle of a region and an aggregate profile (could be visualized, for example in Excel or in CMB). Second tab-delimited text file contains all occupancy data for each region of interest (or transcript), aligned to annotated regions starts. These matrixes can be later visualized with our ClusterMaps Building Tool.
-
+In this example the test.bam file is sorted by the reads names and converted to test_sorted.bed.gz file. In this case we are dealing with single-end ilumina sequencing reads with the read length of 100 bp and average expected DNA fragment length 150 bp. The reads are extended using extend_SE_reads.pl, then the resulting whole-genome BED file is divided to chromosomes with extract_chr_bed.pl and all per-chromosome BED files are converted to OCC files with bed2occupancy_average.pl using a running window 10bp. ON the last step an aggregate profile around regions specific in genome_annotation.txt is generated using aggregate_profile.pl script 
 
 -------------------------------------------------------------------
 ## NucTools scripts
@@ -218,9 +204,8 @@ Additional information, publications references and short description of each sc
 - http://www.generegulation.info/index.php/nuctools (external link)
 - https://homeveg.github.io/nuctools/ (GitHub pages)
 
-**PLEASE NOTE**:
-*we are currently preparing a manuscript and will add here more information, usage instruction and test data set soon.
-The project is under development now.*
+**How to cite**:
+*Yevhen Vainshtein, Karsten Rippe and Vladimir B. Teif (2017) "NucTools: analysis of chromatin feature occupancy profiles from high-throughput sequencing data" (Submitted)*
 
 ### Future possible modifications
 
