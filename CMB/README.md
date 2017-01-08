@@ -1,3 +1,6 @@
+![ClusterMapBuilder](https://github.com/homeveg/nuctools/blob/master/stylesheets/splash.png)
+
+
 # NucTools Cluster Maps Builder: visualisation and cluster analysis of heatmaps and aggregate profiles
 
 ## Disclaimer
@@ -5,8 +8,6 @@
 Cluster Maps Builder (CMB) is part of the NucTools 2.0 release. It is in constant development and therefore may have some instability and bugs. Some known issues are discribed in the enclosed user manual. If you find new bugs please contact yevhen.vainshtein@igb.fraunhofer.de
 
 ## Introduction
-
-![ClusterMapBuilder](https://github.com/homeveg/nuctools/blob/master/stylesheets/splash.png)
 
 Cluster Maps Builder (CMB) is primarily designed to visualize nucleosome occupancy profiles of thousands of features aligned at the genomic coordinate corresponding to a specific feature, like transcription factor binding site or transcription/translation initiation or termination site, using a heatmap representation. CMB includes a K-means clustering step and is able to apply the sorting/clustering order from initial matrix to a different matrix of the same size and dimensions.
 
