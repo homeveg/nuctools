@@ -1,4 +1,4 @@
-![ClusterMapBuilder](https://github.com/homeveg/nuctools/blob/master/stylesheets/splash.png)
+![ClusterMapBuilder](figures/splash.png)
 
 
 # NucTools Cluster Maps Builder: visualisation and cluster analysis of heatmaps and aggregate profiles
