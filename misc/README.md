@@ -31,6 +31,7 @@ All scripts can be executed from the command line with parameters specifying inp
 ## Quick start
 
 From the terminal window call script using following command:
+
     $ Rscript <script name.R> --help
 
 ### LoadAnnotation.BioMart.R
@@ -40,6 +41,7 @@ The script is using Bioconductor package boimaRT to retrieve genes annotation fr
 By default script LoadAnnotation.BioMart.R will download mouse genes annotation from archived Ensembl 76 database and save it to a user specified directory.
 
 To start working with the script use the following command:
+
     $ Rscript LoadAnnotation.BioMart.R --help
 
 ### match_2tables_byID.R
@@ -48,6 +50,7 @@ ClusterMapsBuilder (CMB) has an option to apply the sorting order after K-mean c
 The script match_2tables_byID.R is developed to prepare aligned occupancy matrices (the result of aggregate_profile.pl script) for further analysis with CMB. It resorting each of 2 input tables by the first column, containing unique ID and saving to the output only lines with matching IDs.
 
 Execute the following command to get detailed usage instruction:
+
     $ Rscript match_2tables_byID.R --help
 
 ### plotNRL.R
@@ -55,6 +58,7 @@ Execute the following command to get detailed usage instruction:
 The distribution of nucleosome start-to-start distances determined by nucleosome_repeat_length.pl can be analysed by an R script plotNRL.R, which extracts peak coordinates and performs linear fitting; the slope of the line gives the NRL.
 
 Execute the following command to get detailed usage instruction:
+
     $ Rscript plotNRL.R --help
 
 ### Developers: 
