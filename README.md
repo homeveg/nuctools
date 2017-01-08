@@ -4,12 +4,14 @@
  
 Biomedical applications of high-throughput sequencing methods generate a vast amount of data in which numerous chromatin features are mapped along the genome. The results are frequently analysed by creating binary data sets that link the presence/absence of a given feature to specific genomic loci. However, the nucleosome occupancy or chromatin accessibility landscape is essentially continuous. It is currently a challenge in the field to cope with continuous distributions of deep sequencing chromatin readouts and to integrate the different types of discrete chromatin features to reveal linkages between them. Here we introduce the NucTools suite of Perl scripts as well as MATLAB- and R-based visualization programs for a nucleosome-centred downstream analysis of deep sequencing data. NucTools accounts for the continuous distribution of nucleosome occupancy. It allows calculations of nucleosome occupancy profiles averaged over several replicates, comparisons of nucleosome occupancy landscapes between different experimental conditions, and the estimation of the changes of integral chromatin properties such as the nucleosome repeat length. Furthermore, NucTools facilitates the annotation of nucleosome occupancy with other chromatin features like binding of transcription factors or architectural proteins, and epigenetic marks like histone modifications or DNA methylation.
 
+![NucTools scheme](https://github.com/homeveg/nuctools/blob/master/stylesheets/NucTools_Manuscript_Figure1_scheme.png)
+
 -------------------------------------------------------------------
 ## SYSTEM REQUIREMENT
 
 Linux (2.6 kernel or later), Windows 7 x32/64 or Mac (OSX 10.6 Snow Leopard or later) operating system with minimal 16 GB of RAM is recommended*. Perl v5.8 or above is required.
 
-The C/C++ compiling environment might be required for installing dependencies, such as bedtools. Systems may vary. Please assure that your system has the essential software building packages (e.g. build-essential for Fedora, XCODE for Mac...etc) installed properly before running the installing scripts.
+The C/C++ compiling environment might be required for installing dependencies, such as bedtools. Systems may vary. Please assure that your system has the essential software building packages (e.g. build-essential for Fedora, XCODE for Mac...etc) installed properly.
 
 NucTools was tested successfully on our Linux servers (CentOS release 6.7 w/ Perl v5.10.1; Fedora release 22 w/ Perl v5.20.3), Macbook Pro laptops (MAC OSX 10.11 w/ XCODE v5.1, 8GB RAM, 4 cores processor), Lenovo ThinkPad laptop (Windows 7, 8Gb RAM, 4 cores processor)
 
