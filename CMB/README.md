@@ -1,10 +1,10 @@
-# Cluster Maps Builder: aggregate profile and aligned occupancy matrix visualizer
+# NucTools Cluster Maps Builder: aggregate profile and aligned occupancy matrix visualizer
 
 ## Disclaimer
 
-Cluster Maps Builder (CMB) is part of NucTools 1.0 release. At the moment it is
-at constant development and therefore may have some instability and bugs. If
-you find new bugs please contact y.vainshtein@zmbh.uni-heidelberg.de
+Cluster Maps Builder (CMB) is a part of NucTools 2.0 release. It is
+at constant development and therefore may have some instability and bugs. Some known issues discribed in attached user manual.
+If you find new bugs please contact y.vainshtein@zmbh.uni-heidelberg.de
 
 ## Introduction
 

@@ -2,7 +2,7 @@
 
 ## Disclaimer
 
-The following collection of R scripts is part of NucTools 1.0 release. At the moment it is at constant development and therefore may have some instability and bugs. If you find new bugs please contact yevhen.vainshtein@igb.fraunhofer.de
+The following collection of R scripts is part of NucTools 2.0 release. At the moment it is at constant development and therefore may have some instability and bugs. If you find new bugs please contact yevhen.vainshtein@igb.fraunhofer.de
 
 -------------------------------------------------------------------
 

@@ -1,4 +1,4 @@
-# NucTools
+# NucTools 2.0
 
 ## NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
  
