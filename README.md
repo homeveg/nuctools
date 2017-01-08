@@ -26,11 +26,12 @@ This is an example of profiling a "test.bed" file using NucTools. The test BED f
 in the "test" directory. More details can be found in the INSTRUCTION section.
 
 1. Obtaining NucTools package:
-   
+        
         $ git clone https://github.com/homeveg/nuctools.git NucTools
    
 2. Installing NucTools:
-        the NucTools package does not require installation. It is a collection of individual scripts which can be executed individually.
+   
+    the NucTools package does not require installation. It is a collection of individual scripts which can be executed individually.
 
 3. Generate a genome annotation table using the provided R script:
    
