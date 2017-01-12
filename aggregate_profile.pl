@@ -20,7 +20,7 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     
  Options:
  
-  additional files:
+  optional files:
     --expression | -exp       RPM expression values and flags
     --path2log | -log         path to program log file (default: AggregateProfile.log in working directory)
     
@@ -66,7 +66,8 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --GeneLengthNorm | -glN         normalize each profile to the region length (gene length)
     --LibsizeNorm | -lsN            perform sequencing library size normalization
     --PerBaseNorm | -pbN            compensate for the transcript length difference
-
+	
+  additional parameters
 	--force                         overwrite output file with the same file name 
     --gzip | -z                     compress the output
     --verbose'                      display additional run info
