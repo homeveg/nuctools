@@ -305,6 +305,17 @@ for (my $i=0; $i<=10; $i++) {
 print STDERR "done in ", time()-$timer2, " seconds.\n";
 $timer2= time();
 
+
+# remove empty strings
+$timer2= time();
+print STDERR "- cleaning from empty strings plus_starts (if any)...";
+@sorted_plus_starts = grep /\S/, @sorted_plus_starts;
+print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_plus_starts+1," strings left\n";
+$timer2= time();
+print STDERR "- cleaning from empty strings minus_starts (if any)...";
+@sorted_minus_starts = grep /\S/, @sorted_minus_starts;
+print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_minus_starts+1," strings left\n";
+
 # remove nucleosomoes without repeat ($pile>1)
 if ($pile>1) {
 	print STDERR "remove nucleosomoes without repeat\n";
