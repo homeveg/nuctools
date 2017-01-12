@@ -197,7 +197,7 @@ if (! $ConvertAllInDir) {
         $outfile = $infile;
         $outfile =~ s/(.*)\.bed(.gz)?$/$1\.w$running_window\.occ/;
 	}
-	BED_2_OCC($infile, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag); } 
+	BED_2_OCC($infile, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end); } 
 elsif ($ConvertAllInDir) {
     # process each *.bed file in the folder
     my (%dir, @dir_list, @text_list);
@@ -209,12 +209,12 @@ elsif ($ConvertAllInDir) {
         if ($file =~ m/.*\.bed$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed$/$1\.w$running_window\.occ/;
-            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
+            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end);           
         }
         if ($file =~ m/.*\.bed.gz$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed.gz$/$1\.w$running_window\.occ/;
-            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag);           
+            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end);           
         }
     }
 }
@@ -224,7 +224,7 @@ exit;
 #--------------------------------------------------------------------------
 
 sub BED_2_OCC {
-    my ($infile_name, $outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag) = @_;
+    my ($infile_name, $outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end) = @_;
     
 	my $infile;
 	if ( $infile_name =~ (/.*\.gz$/) ) {
@@ -312,12 +312,11 @@ sub BED_2_OCC {
 
     $timer2 = time();
  
-    #initialize running average for first 2*$running_window+1 nucleotides
-    my $LibSize_norm_factor = ($line_counter)/($region_end-$region_start);
     # modify running average by shifting
     if (!$region_end) {	$region_end=$#occup; }
+	my $LibSize_norm_factor = ($line_counter)/($region_end-$region_start);	
 	if ($running_window > 1 ) {
-    print STDERR "calculating and printing normalized occupancy with a running window +/- ",$running_window,"\nPlease wait...";
+		print STDERR "calculating and printing normalized occupancy with a running window +/- ",$running_window,"\nPlease wait...";
 		for (my $i=$region_start; $i<$region_end; $i+=$running_window) {
 			my $sum=sum(@occup[$i..$i+$running_window]);
 			my $average = $sum/$running_window;
