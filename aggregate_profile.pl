@@ -942,7 +942,7 @@ my $first_shift =  first { $results[$_] >0 } 0..$#results;
 my @coords;
 for (my $i=-$delta_1;$i<=$delta_2;$i+=$window) { push (@coords, $i); }
 
-for (my $k=0; $k<=$#results; $k++) {
+for (my $k=0; $k<=($delta_1+$delta_1+1); $k++) {
 	print AveragedFile $coords[$k],"\t",$results[$k],"\n";
 }
 
