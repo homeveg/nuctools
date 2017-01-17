@@ -9,7 +9,7 @@ average_replicates.pl - Calculates the average occupancy profile based on severa
 perl -w average_replicates.pl --dir=<path to working dir> --output=<path to results file> --coordsCol=0 --occupCol=1 --pattern="occ.gz" --printData --sum [--help] 
 
  Required arguments:
-    --dir | -i      path to directory with aggregate profiles
+    --dir | -i         path to directory with aggregate profiles
     --output | -out    output table file name
 	
  Options:
@@ -21,6 +21,7 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
     --pattern | -p     occupancy profile file name extension template (default: occ.gz)
     --printData | -d   print all input occupancy columns to the output file
     --sum | -s         print column with sum of all occupancies for each nucleotide
+	--list | -l        text file containing coma-separated list of all replicates (full path)
 		
     --gzip | -z        compress the output
     --help | -h        Help
@@ -97,6 +98,7 @@ my (%occupancy,%NormFactors);
 my $wd;
 my $output;
 my $filename_pattern='occ.gz';
+my $list_file;
 
 my $coordsCol=0;
 my $occupCol=1;
@@ -117,6 +119,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'printData|d' => \$addData,
 	'sum|s' => \$printSum,
 	'gzip|z' => \$useGZ,
+	'list|l=s' => \$list_file,
 	
 	'help|h'      => \$needsHelp
 );
@@ -143,25 +146,38 @@ join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",
 join(":",$tm -> [2],$tm -> [1],$tm -> [0]),
 "\n-----------------------\n";
 
-#check if folder exists
+#load list of replicated experiments
+my (@names,@files,@dirs, @all_files);
 
-opendir(DIR, "$wd") or die $!;
-my @all_files = readdir(DIR);
-closedir(DIR);
-my (@names,@files);
+if ($list_file) {
+	open(LIST_FILE, "<$list_file") or die "can't read from file $list_file: $!";
+	my @lines=<LIST_FILE>;
+	close (LIST_FILE);
+	my $pattern="[\\t\\s,;]";
+	@all_files=split($pattern,join("",@lines));
+	@all_files = grep /\S/, @all_files;
+
+} else {
+	opendir(DIR, "$wd") or die $!;
+	@all_files = readdir(DIR);
+	closedir(DIR);
+}
 
 foreach my $file (sort @all_files){
   if ($file =~ m/.*\.$filename_pattern$/){
 	push(@files, $file);
-	my $filename = basename($file,  "\.$filename_pattern");
-	push(@names, $filename);
+	my $file_name = basename($file,  "\.$filename_pattern");
+	my $dir_name = dirname($file,  "\.$filename_pattern");
+	push(@names, $file_name);
+	push(@dirs, $dir_name);
 	}
 }
 
 for (my $i=0; $i<=$#files; $i++) {
-	my $filename = $names[$i];
+	my $file_name = $names[$i];
 	my $file = $files[$i];
-	$NormFactors{$filename} = ReadFile("$wd/$file", $filename, $coordsCol, $occupCol, \%occupancy, @names);
+	my $dir = $dirs[$i];
+	$NormFactors{$file_name} = ReadFile("$file", $file_name, $coordsCol, $occupCol, \%occupancy, @names);
 
 }
 
