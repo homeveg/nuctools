@@ -40,8 +40,14 @@ perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt>
  Note:
     default column numbers refer to a standard bed file format:
 	
-	chromosome | read start | read end | read ID | score | strand
+	chromosome | region start | region end | read ID | score | strand
 	=============================================================
+	
+	output file contains following columns:
+	
+	chromosome | region start | region end | normalized differnece | ocuupancy cond. 1 | ocupancy cond. 2
+	======================================================================================================
+	
 	
 =head1 DESCRIPTION
 

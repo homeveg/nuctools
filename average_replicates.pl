@@ -21,12 +21,7 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
     --pattern | -p     occupancy profile file name extension template (default: occ.gz)
     --printData | -d   print all input occupancy columns to the output file
     --sum | -s         print column with sum of all occupancies for each nucleotide
-<<<<<<< HEAD
 	--list | -l        text file containing coma-separated list of all replicates (full path)
-		
-=======
-	--list | -l        text file containing coma-separated list of all replicates (full path)		
->>>>>>> origin/master
     --gzip | -z        compress the output
     --help | -h        Help
     
@@ -295,7 +290,6 @@ sub ReadFile {
     print STDERR "Reading $in_file file of $filesize MBs. Please wait...\n";
 
     #read file with by 4kb chanks
-    #@coord_occ_array=();
     my $BUFFER_SIZE = 1024*4;
     
 	# open compressed occupancy file
@@ -392,12 +386,5 @@ sub check_opts {
 			-message => "Cannot find either input directory $wd or list file $list_file: $!\n"
 		);
 	}
-	#if ( -e $outfile ) {
-	#	pod2usage(
-	#		-exitval => 2,
-	#		-verbose => 1,
-	#		-message => "'$outfile' exists in target folder\n"
-	#	);
-	#}
 
 }
