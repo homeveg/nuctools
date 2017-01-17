@@ -21,8 +21,7 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
     --pattern | -p     occupancy profile file name extension template (default: occ.gz)
     --printData | -d   print all input occupancy columns to the output file
     --sum | -s         print column with sum of all occupancies for each nucleotide
-	--list | -l        text file containing coma-separated list of all replicates (full path)
-		
+	--list | -l        text file containing coma-separated list of all replicates (full path)		
     --gzip | -z        compress the output
     --help | -h        Help
     
@@ -112,6 +111,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'dir|i=s' => \$wd,
 	'output|out=s'   => \$output,
 	'pattern|p=s' => \$filename_pattern,
+	'list|l=s' => \$list_file,
 
 	'coordsCol|cC=s' => \$coordsCol,
 	'occupCol|oC=s' => \$occupCol,
@@ -140,6 +140,8 @@ else {
 }
 
 
+if($list_file) { print STDERR "loading replicates list file: $list_file\n"; }
+
 my $tm = localtime;
 print STDERR "-----------------------\n",
 join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",
@@ -156,7 +158,6 @@ if ($list_file) {
 	my $pattern="[\\t\\s,;]";
 	@all_files=split($pattern,join("",@lines));
 	@all_files = grep /\S/, @all_files;
-
 } else {
 	opendir(DIR, "$wd") or die $!;
 	@all_files = readdir(DIR);
@@ -178,8 +179,25 @@ for (my $i=0; $i<=$#files; $i++) {
 	my $file = $files[$i];
 	my $dir = $dirs[$i];
 	$NormFactors{$file_name} = ReadFile("$file", $file_name, $coordsCol, $occupCol, \%occupancy, @names);
-
 }
+
+#
+#my (@names,@files);
+#
+#foreach my $file (sort @all_files){
+#  if ($file =~ m/.*\.$filename_pattern$/){
+#	push(@files, $file);
+#	my $filename = basename($file,  "\.$filename_pattern");
+#	push(@names, $filename);
+#	}
+#}
+#
+#for (my $i=0; $i<=$#files; $i++) {
+#	my $filename = $names[$i];
+#	my $file = $files[$i];
+#	$NormFactors{$filename} = ReadFile("$wd/$file", $filename, $coordsCol, $occupCol, \%occupancy, @names);
+#
+#}
 
 print STDERR "calculating StDev, Variance, Sum and average.\nResults will be saved to $output\n";
 
@@ -381,11 +399,11 @@ sub check_opts {
 			-message => "Error specifying options."
 		);
 	}
-	if ( ! -d $wd ) {
+	if ( ( ! -d $wd ) && ( ! $list_file ) ) {
 		pod2usage(
 			-exitval => 2,
 			-verbose => 1,
-			-message => "Cannot find input directory $wd: $!\n"
+			-message => "Cannot find either input directory $wd or list file $list_file: $!\n"
 		);
 	}
 	#if ( -e $outfile ) {
