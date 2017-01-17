@@ -21,7 +21,12 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
     --pattern | -p     occupancy profile file name extension template (default: occ.gz)
     --printData | -d   print all input occupancy columns to the output file
     --sum | -s         print column with sum of all occupancies for each nucleotide
+<<<<<<< HEAD
+	--list | -l        text file containing coma-separated list of all replicates (full path)
+		
+=======
 	--list | -l        text file containing coma-separated list of all replicates (full path)		
+>>>>>>> origin/master
     --gzip | -z        compress the output
     --help | -h        Help
     
@@ -180,25 +185,6 @@ for (my $i=0; $i<=$#files; $i++) {
 	my $dir = $dirs[$i];
 	$NormFactors{$file_name} = ReadFile("$file", $file_name, $coordsCol, $occupCol, \%occupancy, @names);
 }
-
-#
-#my (@names,@files);
-#
-#foreach my $file (sort @all_files){
-#  if ($file =~ m/.*\.$filename_pattern$/){
-#	push(@files, $file);
-#	my $filename = basename($file,  "\.$filename_pattern");
-#	push(@names, $filename);
-#	}
-#}
-#
-#for (my $i=0; $i<=$#files; $i++) {
-#	my $filename = $names[$i];
-#	my $file = $files[$i];
-#	$NormFactors{$filename} = ReadFile("$wd/$file", $filename, $coordsCol, $occupCol, \%occupancy, @names);
-#
-#}
-
 print STDERR "calculating StDev, Variance, Sum and average.\nResults will be saved to $output\n";
 
 # open pipe to Gzip or open text file for writing
