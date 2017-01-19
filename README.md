@@ -10,13 +10,20 @@ Biomedical applications of high-throughput sequencing methods generate a vast am
 
 ## SYSTEM REQUIREMENT
 
-Linux (2.6 kernel or later), Windows 7 x32/64 or Mac (OSX 10.6 Snow Leopard or later) operating system with minimal 16 GB of RAM is recommended*. Perl v5.8 or above is required.
+Linux (2.6 kernel or later), Windows 7 x32/64 or Mac (OSX 10.6 Snow Leopard or later) operating system with **minimum 64 GB of RAM** is recommended*. Perl v5.8 or above is required.
 
 The C/C++ compiling environment might be required for installing dependencies, such as bedtools. Systems may vary. Please assure that your system has the essential software building packages (e.g. build-essential for Fedora, XCODE for Mac...etc) installed properly.
 
 NucTools was tested successfully on our Linux servers (CentOS release 6.7 w/ Perl v5.10.1; Fedora release 22 w/ Perl v5.20.3), Macbook Pro laptops (MAC OSX 10.11 w/ XCODE v5.1, 8GB RAM, 4 cores processor), Lenovo ThinkPad laptop (Windows 7, 8Gb RAM, 4 cores processor)
 
-*Memory requirements depend on the experimental system. For big genomes the performance will increase greatly on machines with more memory. For example, the processing of all mouse chromosomes, with the sequencing library size about 75 000 000 reads occupy at the peak load around 60-70 Gb of RAM. It is important to mention that the performance is very dependent on the HDD read-write speed. Therefore the running of many samples in parallel is recommended only on the server-like system or computational clusters with RAID arrays, allowing real multithreaded read-write access to HDDs array.
+*Memory requirements depend on the experimental system. For big genomes the performance will increase greatly on machines with more memory. For example, the processing of all mouse chromosomes, with the sequencing library size about 30 000 000 reads occupy at the peak load around 60-70 Gb of RAM. It is important to mention that the performance is very dependent on the HDD read-write speed. Therefore the running of many samples in parallel is recommended only on the server-like system or computational clusters with RAID arrays, allowing real multithreaded read-write access to HDDs array.
+
+### aggregate_profile.pl script memory usage.
+
+![NucTools memory requirments](figures/Memory_usage.png)
+
+We used occupancy values from 7 mouse chromosomes with the length from 95 millions of bps (chromosome 17) to 195 millions bps (chromosome 1). 
+With the average sequence coverage of 67% and sequencing depth 4.5 folds, computer used 440 Mb of RAM per 1 million bases of a mapped bps.
 
 -------------------------------------------------------------------
 
