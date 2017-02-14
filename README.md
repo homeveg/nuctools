@@ -221,9 +221,12 @@ In this example the test.bam file is sorted by the reads names and converted to 
 Additional information, publications references and short description of each script from the toolbox can be found here:
 - http://www.generegulation.info/index.php/nuctools (external link)
 - https://homeveg.github.io/nuctools/ (GitHub pages)
+- http://link.springer.com/article/10.1186/s12864-017-3580-2 (BMC Genomics)
 
 **How to cite**:
-*Yevhen Vainshtein, Karsten Rippe and Vladimir B. Teif (2017) "NucTools: analysis of chromatin feature occupancy profiles from high-throughput sequencing data" (Submitted)*
+Vainshtein, Y., Rippe, K. & Teif, V.B. 
+BMC Genomics (2017) 18: 158. 
+doi:10.1186/s12864-017-3580-2
 
 ### Future possible modifications
 
