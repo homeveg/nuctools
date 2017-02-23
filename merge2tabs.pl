@@ -139,7 +139,7 @@ if ( $path_tab2 =~ (/.*\.gz$/) ) {
 	$inFH2 = IO::Uncompress::Gunzip->new( $path_tab2 )
 	or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip failed::GunzipError\n";
 }
-else { open( $inFH1, "<", $path_tab2 ) or die "error: $path_tab2 cannot be opened:$!"; }
+else { open( $inFH2, "<", $path_tab2 ) or die "error: $path_tab2 cannot be opened:$!"; }
 while (<$inFH2>) { for my $chank  (split/\r\n/) { my $text = clean($chank); push(@array_tab2, $text); } }
 close($inFH2);
 
