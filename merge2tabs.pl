@@ -74,7 +74,7 @@ perl -w merge2tabs.pl --table1=<path to table 1> --table2=<path to table 2> --ou
 
 =cut
 
-use strict;
+use strict "vars";
 use Getopt::Long;
 use Pod::Usage;
 
@@ -154,13 +154,13 @@ if ($useGzip) {
 	my $out_file = $path2output;
 	$out_file =~ s/(.*)\.gz$/$1/;
 	my $gz_out_file = $out_file.".gz";
-	my $OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+	$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 } else {
-	my $OUT_FHs = open ">$path2output" or die "Can't open $path2output for writing: $!\n";
+	open ($OUT_FHs, ">$path2output") or die "Can't open $path2output for writing: $!\n";
 }
 
-print OUTPUT join("\n", @joined_arrays), "\n";
-close(OUTPUT);
+print $OUT_FHs join("\n", @joined_arrays), "\n";
+close($OUT_FHs);
 print STDERR "\nfinished\n";
 exit;
 
