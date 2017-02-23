@@ -95,7 +95,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'table2|t2=s'   => \$path_tab2,
 	'output|out=s' => \$path2output,
 	'colID_tab1|c1=s'   => \$colID_tab1,
-	'colID_tab1|c2=s'   => \$colID_tab2,
+	'colID_tab2|c2=s'   => \$colID_tab2,
 
 	'gzip'      => \$useGzip,
 	'help|h'      => \$needsHelp
