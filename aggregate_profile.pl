@@ -410,9 +410,9 @@ while (<LIST_FILE>) {
 		} else {
 			my $list_chr=$temp[$chromosome_nr_col];
 			my $selected_chr=$Chromosome;
-			$list_chr=~s/chr//i;
-			$selected_chr=~s/chr//i;
-			if ($temp[$chromosome_nr_col] == $selected_chr ) {
+			$list_chr =~ s/chr//i;
+			$selected_chr =~ s/chr//i;
+			if ($list_chr == $selected_chr ) {
 				push(@LIST_array, $text);
 			}
 		}
