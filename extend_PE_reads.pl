@@ -1,4 +1,4 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
 =head1 NAME
 
@@ -175,13 +175,14 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 	my @newline2=split(/\t/, $line2);
 	
 	my $chr_name_1=$newline1[0];
+	my $chr_name_2=$newline2[0];
 	my $start_nuc_1=$newline1[1];
 	my $end_nuc_2=$newline2[2];
 	my $nuc_length=$end_nuc_2-$start_nuc_1;
 	my $read_1=$newline1[3];
 	my $read_2=$newline2[3];
 	
-	if ($read_1 eq $read_2) {
+	if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length <1000))  {
 		print $OUT_FHs join("\t", $chr_name_1, $start_nuc_1, $end_nuc_2, $nuc_length), "\n";
 		if ($verbose) {
 		  print STDOUT join("\t", $chr_name_1, $start_nuc_1, $end_nuc_2, $nuc_length), "\n";
