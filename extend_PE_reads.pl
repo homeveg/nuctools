@@ -10,8 +10,8 @@ extend_PE_reads.pl - Takes as input bed file with mapped paired-end reads (two l
 perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--verbose --help] 
 
  Required arguments:
-    --input | -in      path to directory with aggregate profiles
-    --output | -out    output table file name
+    --input | -in      path to input bed file with mapped paired-end reads
+    --output | -out    output "one-line-per-paired-end-reads" bed file name
 
  Options:
     --gzip | -z        compress the output
