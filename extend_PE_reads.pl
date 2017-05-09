@@ -1,4 +1,4 @@
-#!/usr/bin/perl
+#!/usr/bin/perl -w
 
 =head1 NAME
 
@@ -7,7 +7,7 @@ extend_PE_reads.pl - Takes as input bed file with mapped paired-end reads (two l
 
 =head1 SYNOPSIS
 
-perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--help] 
+perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--verbose --help] 
 
  Required arguments:
     --input | -in      path to directory with aggregate profiles
@@ -15,6 +15,8 @@ perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--help]
 
  Options:
     --gzip | -z        compress the output
+    --verbose | -v     print converted output to STDOUT
+	
 	--help | h                 Help
 	
  Example usage:
@@ -86,12 +88,14 @@ my $outfile;
 
 my $needsHelp;
 my $useGZ;
+my $verbose;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
 	'output|out=s'   => \$outfile,
 	'gzip|z' => \$useGZ,
-	
+	'verbose'   => \$verbose,
+
 	'help|h'      => \$needsHelp
 );
 
@@ -170,12 +174,19 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 	my @newline1=split(/\t/, $line1);
 	my @newline2=split(/\t/, $line2);
 	
-	my $chr_name=$newline1[0];
-	my $start_nuc=$newline1[1];
-	my $end_nuc=$newline2[2];
-	my $nuc_length=$end_nuc-$start_nuc;
+	my $chr_name_1=$newline1[0];
+	my $start_nuc_1=$newline1[1];
+	my $end_nuc_2=$newline2[2];
+	my $nuc_length=$end_nuc_2-$start_nuc_1;
+	my $read_1=$newline1[3];
+	my $read_2=$newline2[3];
 	
-	print $OUT_FHs join("\t", $chr_name, $start_nuc, $end_nuc, $nuc_length), "\n";
+	if ($read_1 eq $read_2) {
+		print $OUT_FHs join("\t", $chr_name_1, $start_nuc_1, $end_nuc_2, $nuc_length), "\n";
+		if ($verbose) {
+		  print STDOUT join("\t", $chr_name_1, $start_nuc_1, $end_nuc_2, $nuc_length), "\n";
+		}
+	}
 	
 	$i++;
     }
