@@ -107,7 +107,7 @@ A typical analysis workflow using NucTools consists of the following steps (see 
 
 The examples below refer to an artificially created input BAM file "test.bam" which we use to run through a NucTools pipeline:
 
-        $ samtools sort -n ./test/test_sorted.bam ./test/test.bam
+        $ samtools sort -n ./test/test.bam ./test/test_sorted
         $ bowtie2bed.pl -i ./test/test_sorted.bam --verbose > ./test/test_sorted.bed.gz
         $ extend_SE_reads.pl -in ./test/test.bed -out ./test/test.ext.bed.gz -fL 150
         $ extract_chr_bed.pl -in ./test/test.ext.bed.gz -out test/BED -d ./test -p chr 
