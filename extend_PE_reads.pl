@@ -2,7 +2,8 @@
 
 =head1 NAME
 
-extend_PE_reads.pl - Takes as input bed file with mapped paired-end reads (two lines per paired read) and reformat it by creating a smaller bed file with one line per nucleosome in the following format:
+extend_PE_reads.pl - Takes as input bed file with mapped paired-end reads (two lines per paired read) and reformat it by creating a smaller bed file
+with one line per nucleosome in the following format:
 (1) chromosome, (2) nucleosome start, (3) nucleosome end, (4) nucleosome length
 
 =head1 SYNOPSIS
@@ -14,6 +15,7 @@ perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--verbose --help]
     --output | -out    output "one-line-per-paired-end-reads" bed file name
 
  Options:
+    --NucLength | -nl  maximum expected read length (default: 1000)
     --gzip | -z        compress the output
     --verbose | -v     print converted output to STDOUT
 	
@@ -77,6 +79,7 @@ perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--verbose --help]
 use strict;
 use Getopt::Long;
 use Pod::Usage;
+use List::Util qw(min max);
 
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
@@ -89,10 +92,12 @@ my $outfile;
 my $needsHelp;
 my $useGZ;
 my $verbose;
+my $NucLength = 1000;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
 	'output|out=s'   => \$outfile,
+    'NucLength|nl=s' => \$NucLength,
 	'gzip|z' => \$useGZ,
 	'verbose'   => \$verbose,
 
@@ -166,8 +171,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 	  $end_index=$#lines;
 	  undef $last_line;
 	}
-	if(($i==$end_index) && ($end_index % 2 == 0) && ($lines[$#lines] =~ /^chr.*/ )) 
-	    { $last_line= $lines[$#lines]; last; }
+	if(($i==$end_index) && ($end_index % 2 == 0) && ($lines[$#lines] =~ /^chr.*/ ))  { $last_line= $lines[$#lines]; last; }
 	$line1=$lines[$i]; chomp($line1);
 	$line2=$lines[$i+1]; chomp($line2);
 	
@@ -176,19 +180,21 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 	
 	my $chr_name_1=$newline1[0];
 	my $chr_name_2=$newline2[0];
-	my $start_nuc_1=$newline1[1];
-	my $end_nuc_2=$newline2[2];
-	my $nuc_length=$end_nuc_2-$start_nuc_1;
-	my $read_1=$newline1[3];
+    
+    my $min = min ($newline1[1],$newline2[1]);
+    my $max = max ($newline1[2],$newline2[2]);
+    my $nuc_length = $max - $min;
+
+    my $read_1=$newline1[3];
 	my $read_2=$newline2[3];
-	
-	if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length <1000))  {
-		print $OUT_FHs join("\t", $chr_name_1, $start_nuc_1, $end_nuc_2, $nuc_length), "\n";
-		if ($verbose) {
-		  print STDOUT join("\t", $chr_name_1, $start_nuc_1, $end_nuc_2, $nuc_length), "\n";
-		}
+    
+   	if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length < $NucLength))  {
+        print $OUT_FHs join("\t", $chr_name_1, $min, $max, $nuc_length), "\n";
+        if ($verbose) {
+            print STDOUT join("\t", $chr_name_1, $min, $max, $nuc_length), "\n";
+        }
 	}
-	
+
 	$i++;
     }
     if($#lines % 2)  {
