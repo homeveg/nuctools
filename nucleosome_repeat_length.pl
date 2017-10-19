@@ -24,7 +24,7 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
     --chromosome_col | -chrC     chromosome column Nr. (default: -chr 0)
 
    parameters with default values:
-    --delta | -d                  maximum distance from start of the reference nucleosome to the last in calculations (default: 400)
+    --delta | -d                  maximum distance from start of the reference nucleosome to the last in calculations (default: 1500)
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
 	--MaxNr | -m                  set maximum number adjacent reads to analyze (default: 1000000 )
@@ -34,7 +34,7 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
     --fix_pile_size | -s          only consider nucleosomes in piles of the defined size (requires -p parameter)
     --useStrand | -uS             use strand information (for single-end sequencing reads)
 	
-	--help | h                nnn Help
+	--help | h                    Help
 	
  Example usage:
  
@@ -104,7 +104,7 @@ use Time::Local;
 
 
 # Default parameters
-my $delta = 400;
+my $delta = 1500;
 my $pile = 1;
 my $piles_filtering_threshold=20;
 my $pile_delta = 5;
@@ -114,6 +114,7 @@ my $out_path1;
 
 # default BED file columns
 my $start_col=1;
+my $end_col=2;
 my $strand_col=3;
 my $chromosome_col=0;
 
@@ -146,6 +147,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'MaxNr|m=i' => \$MaxNr,
 
 	'start_col|sC=s' => \$start_col,
+	'end_col|eC=s' => \$end_col,
 	'strand_col|str=s' => \$strand_col,
 	'chromosome_col|chr=s'   => \$chromosome_col,
 
@@ -184,6 +186,7 @@ if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"
 print STDERR "pile delta: ",$pile_delta, "\n";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
 if ( defined $useStrand ) { print STDERR "analyzing single-end reads: use starnd from column $strand_col\n"; }
+
 else { print STDERR "analyzing paired-end reads: ignore strand\n"; }
 print STDERR "Nr of reads to limit fragment length calculation: $MaxNr\n";
 print STDERR "======================================\n";
@@ -223,6 +226,7 @@ $filesize = int($filesize/1048576); # filesize in megabytes
 print STDERR "- reading nucleosome start position column from $in_file ($filesize MBs). Please wait...\n";
 
 my $processed_memory_size = 0;
+my $total_mbytes_loaded=0;
 my $offset=0;
 my $not_zero_counter=0;
 my $string_counter=0;
@@ -241,11 +245,17 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 		chomp($line);
 		my @newline1=split(/\W+/, $line);
 		my $start_nuc=$newline1[$start_col];
+		my $end_nuc=$newline1[$end_col];
+
 		my $strand;
 		if ($useStrand) { $strand = $newline1[$strand_col] eq '+' ? 'plus' : 'minus' ; }
 		else { $strand = 'plus'; }
 		
-		$hash{$string_counter}{$strand}{start}=$start_nuc;
+		if ($useStrand) {
+			$hash{$string_counter}{$strand}{start}=$start_nuc;
+			$hash{$string_counter}{$strand}{end}=$end_nuc;
+		}
+		$hash{$string_counter}{mid}=min($end_nuc,$start_nuc)+int(abs($end_nuc-$start_nuc)/2);
 
 		$string_counter++;
 		if ($start_nuc>0) {$not_zero_counter++;}
@@ -256,6 +266,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 		}
     }
 	$processed_memory_size += $n;
+	$total_mbytes_loaded += $n;
 	$offset += $n;
 	if(int($processed_memory_size/1048576)>= $filesize/10) {
 		print STDERR "."; $processed_memory_size=0;
@@ -266,28 +277,44 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 
 }
 
-close($inFH) or die $!; 
-print STDERR $filesize, " Mbs processed in ", time()-$timer2, " seconds.\n$not_zero_counter non zero counts\n\n";
+close($inFH) or die $!;
+$total_mbytes_loaded = sprintf "%.2f", $processed_memory_size/1048576;
 
+print STDERR $total_mbytes_loaded, " Mbs processed in ", time()-$timer2, " seconds.\n$not_zero_counter non zero counts\n\n";
+if ( $string_counter < $MaxNr ) {
+	print STDERR "file $in_file loaded to 100%\n"
+}
+else
+{
+	my $rounded = sprintf "%.2f", 100*$total_mbytes_loaded/$filesize;
+	print STDERR "file $in_file loaded to ", $rounded  , "%\n";
+}
 # sort nucleosome positions according to a start_nuc
 $timer2= time();
 print STDERR "- sorting...";
 
-# Flatten
-my @flat_array = hash_crawler(\%hash);
-my @sorted_array = sort { $a->[3] <=> $b->[3] or $a->[2] cmp $b->[2] } @flat_array;
+
+my $data = \%hash;
+my @sorted_array;
+
+my @sorted_hash = sort {
+	$data->{$a}{mid} <=> $data->{$b}{mid}
+	or
+	$data->{$a}{mid} cmp $data->{$b}{mid}
+} keys %$data;
+	
 print STDERR "done in ", time()-$timer2, " seconds.\n";
 
-my (@sorted_plus_starts, @sorted_minus_starts);
-for my $entry (@sorted_array) {
-   #print join ", ", @$entry;
-    #print "\n";
-	if ( (@$entry[1] eq "plus" ) and ( @$entry[2] eq "start" ) ) {
-		push (@sorted_plus_starts, @$entry[3]);
+my (@sorted_plus_starts, @sorted_minus_starts, @sorted_mids );
+foreach my $k (@sorted_hash) {
+    #print "$k: $data->{$k}{mid}\n";
+	if ($useStrand) {
+		push (@sorted_plus_starts, $data->{$k}{plus}{start});
+		push (@sorted_minus_starts, $data->{$k}{minus}{start});
 	}
-	elsif ( (@$entry[1] eq "minus" ) and ( @$entry[2] eq "start" ) ) {
-		push (@sorted_minus_starts, @$entry[3]);
-	}	
+	else {
+		push (@sorted_mids, $data->{$k}{mid});
+	}
 }
 
 if ($useStrand) {
@@ -296,9 +323,9 @@ if ($useStrand) {
 		print STDERR join("\t", $sorted_plus_starts[$i], $sorted_minus_starts[$i]),"\n";
 	}
 } else {
-	print STDERR "plus starts: $#sorted_plus_starts\n";
+	print STDERR "mids: $#sorted_mids\n";
 	for (my $i=0; $i<=10; $i++) {
-		print STDERR "$sorted_plus_starts[$i]\n";
+		print STDERR "$sorted_mids[$i]\n";
 	}
 }
 
@@ -306,43 +333,50 @@ print STDERR "done in ", time()-$timer2, " seconds.\n";
 $timer2= time();
 
 
-# remove empty strings
-$timer2= time();
-print STDERR "- cleaning from empty strings (if any)...";
-@sorted_plus_starts = grep /\S/, @sorted_plus_starts;
-print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_plus_starts+1," strings left\n";
-
-
-# remove empty strings
-if ($useStrand) {
-	$timer2= time();
-	print STDERR "- cleaning from empty strings (if any)...";
-	@sorted_minus_starts = grep /\S/, @sorted_minus_starts;
-	print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_minus_starts+1," strings left\n";
-}
-
 # remove nucleosomoes without repeat ($pile>1)
 if ($pile>1) {
 	print STDERR "remove nucleosomoes without repeats\n";
-	my @temp = remove_unpiled($pile, $fix_pile_size, $pile_delta, @sorted_plus_starts);
-	@sorted_plus_starts = @temp;
-	undef @temp;
+	my @temp;
+
 	if ($useStrand) {
 		@temp = remove_unpiled($pile, $fix_pile_size, $pile_delta, @sorted_minus_starts);
+		undef @sorted_minus_starts;
 		@sorted_minus_starts = @temp;
-		undef @temp;	
+		undef @temp;
+		
+		@temp = remove_unpiled($pile, $fix_pile_size, $pile_delta, @sorted_plus_starts);
+		undef @sorted_plus_starts;
+		@sorted_plus_starts = @temp;
+		undef @temp;
+	}
+	else {
+		@temp = remove_unpiled($pile, $fix_pile_size, $pile_delta, @sorted_mids);
+		undef @sorted_mids;
+		@sorted_mids = @temp;
+		undef @temp;
 	}
 
 }
 
 if ($apply_filter_flag) {
 	print STDERR "remove piles above $piles_filtering_threshold\n";
-	my @temp = filter_by_threshold($piles_filtering_threshold, $pile_delta, @sorted_plus_starts);
-	@sorted_plus_starts = @temp;
+	my @temp;
 		
 	if ($useStrand) {
+		@temp = filter_by_threshold($piles_filtering_threshold, $pile_delta, @sorted_plus_starts);
+		undef @sorted_plus_starts;
+		@sorted_plus_starts = @temp;
+		undef @temp;
+		
 		@temp = filter_by_threshold($piles_filtering_threshold, $pile_delta, @sorted_minus_starts);
+		undef @sorted_minus_starts;
 		@sorted_minus_starts = @temp;
+		undef @temp;	
+	}
+	else {
+		@temp = filter_by_threshold($piles_filtering_threshold, $pile_delta, @sorted_mids);
+		undef @sorted_mids;
+		@sorted_mids = @temp;
 		undef @temp;	
 	}
 
@@ -351,26 +385,46 @@ if ($apply_filter_flag) {
 
 if ($fix_pile_size ) {
 	print STDERR "select only piles of size $pile\n";
-	my @temp = local_pile_filter($pile, $pile_delta, @sorted_plus_starts);
-	@sorted_plus_starts = @temp;
+	my @temp;
 	if ($useStrand) {
+		my @temp = local_pile_filter($pile, $pile_delta, @sorted_plus_starts);
+		undef @sorted_plus_starts;
+		@sorted_plus_starts = @temp;
+		undef @temp;
+		
 		@temp = local_pile_filter($pile, $pile_delta, @sorted_minus_starts);
+		undef @sorted_minus_starts;
 		@sorted_minus_starts = @temp;
+		undef @temp;
+	}
+	else {
+		@temp = local_pile_filter($pile, $pile_delta, @sorted_mids);
+		undef @sorted_mids;
+		@sorted_mids = @temp;
 		undef @temp;
 	}
 }
 
 print STDERR "Step 2: Start analysis...\n";
 $timer2= time();
-my (@output_plus_array,@output_minus_array);
-@output_plus_array=phasogram(\@sorted_plus_starts, $delta);
-if ($useStrand) { @output_minus_array=phasogram(\@sorted_minus_starts, $delta); }
+my (@output_plus_array,@output_minus_array,@output_mids_array);
+if ($useStrand) {
+	@output_minus_array=phasogram(\@sorted_minus_starts, $delta);
+	@output_plus_array=phasogram(\@sorted_plus_starts, $delta);
+	}
+else {
+	@output_mids_array=phasogram(\@sorted_mids, $delta);
+}
+
 print STDERR "- saving results to $out_path1...";
 # open pipe to text file for writing
 open my $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
-for (my $ind=0; $ind<=$#output_plus_array; $ind++) {
+my $maxind;
+if ($useStrand) {$maxind=$#output_plus_array;}
+else {$maxind=$#output_mids_array;}
+for (my $ind=0; $ind<=$maxind; $ind++) {
 	if ($useStrand) { print $OUT_FHs join("\t", $output_plus_array[$ind], $output_minus_array[$ind]),"\n"; }
-	else { print $OUT_FHs $output_plus_array[$ind],"\n"; }
+	else { print $OUT_FHs $output_mids_array[$ind],"\n"; }
 }
 close ($OUT_FHs);
 print STDERR "done\n";
@@ -508,8 +562,9 @@ sub hash_crawler {
     my ($value, @prefix_array) = @_;
     my @results = ();
     if (ref $value) {
-        for (keys %$value) {
-            push @results, hash_crawler($value->{$_},@prefix_array,$_);
+		my @sorted_keys= sort { $a <=> $b } %$value;
+        foreach my $string_number (@sorted_keys) {
+            push @results, hash_crawler($value->{$string_number},@prefix_array,$string_number);
         }
     } else {
         push @results, [@prefix_array, $value];
