@@ -55,6 +55,8 @@ Execute the following command to get detailed usage instruction:
 
 ### plotNRL.R
 
+![NRL calculations](figures/chr1.nrl.PNG)
+
 The distribution of nucleosome start-to-start distances determined by nucleosome_repeat_length.pl can be analysed by an R script plotNRL.R, which extracts peak coordinates and performs linear fitting; the slope of the line gives the NRL.
 
 Execute the following command to get detailed usage instruction:
