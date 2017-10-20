@@ -27,10 +27,11 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
     --delta | -d                  maximum distance from start of the reference nucleosome to the last in calculations (default: 1500)
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
-	--MaxNr | -m                  set maximum number adjacent reads to analyze (default: 1000000 )
+	--MaxNr | -m                  set maximum number of adjacent reads to analyze (default: 1000000 )
 
    flags:
     --apply_filter | -f           apply --filtering_threshold to the data
+	--detectPiles | -dP           auto-detect piles of considerable size and apply --filtering_threshold to the data
     --fix_pile_size | -s          only consider nucleosomes in piles of the defined size (requires -p parameter)
     --useStrand | -uS             use strand information (for single-end sequencing reads)
 	
@@ -93,14 +94,17 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
 use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
+use POSIX;
+use File::Basename;
+use Time::localtime;
+use Time::Local;
 
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
 BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
 BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gzip->import( qw[gzip] );1"; }
 
-use Time::localtime;
-use Time::Local;
+
 
 
 # Default parameters
@@ -108,7 +112,7 @@ my $delta = 1500;
 my $pile = 1;
 my $piles_filtering_threshold=20;
 my $pile_delta = 5;
-
+my $detectPiles;
 my $in_file; 
 my $out_path1;
 
@@ -152,7 +156,8 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'chromosome_col|chr=s'   => \$chromosome_col,
 
 	'fix_pile_size|s' => \$fix_pile_size,
-	'apply_filter|f'   => \$apply_filter_flag,
+	'apply_filter|f'  => \$apply_filter_flag,
+	'detectPiles|dP'  => \$detectPiles,
 	'useStrand|uS' => \$useStrand,
 
 	'help|h'      => \$needsHelp
@@ -185,6 +190,7 @@ print STDERR "filtering threshold: $piles_filtering_threshold\n";
 if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"; }
 print STDERR "pile delta: ",$pile_delta, "\n";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
+if ( defined $detectPiles) { print STDERR "piles auto-detection has been activated. Piles filtering threshold set to $piles_filtering_threshold\n";}
 if ( defined $useStrand ) { print STDERR "analyzing single-end reads: use starnd from column $strand_col\n"; }
 
 else { print STDERR "analyzing paired-end reads: ignore strand\n"; }
@@ -243,7 +249,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     # process each line in zone file
     foreach my $line (@lines) {
 		chomp($line);
-		my @newline1=split(/\W+/, $line);
+		my @newline1=split(/\t/, $line);
 		my $start_nuc=$newline1[$start_col];
 		my $end_nuc=$newline1[$end_col];
 
@@ -269,7 +275,8 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 	$total_mbytes_loaded += $n;
 	$offset += $n;
 	if(int($processed_memory_size/1048576)>= $filesize/10) {
-		print STDERR "."; $processed_memory_size=0;
+		print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.            \r";
+		$processed_memory_size=0;
     }
 	undef @lines;
 	$buffer = "";
@@ -293,7 +300,6 @@ else
 $timer2= time();
 print STDERR "- sorting...";
 
-
 my $data = \%hash;
 my @sorted_array;
 
@@ -309,13 +315,15 @@ my (@sorted_plus_starts, @sorted_minus_starts, @sorted_mids );
 foreach my $k (@sorted_hash) {
     #print "$k: $data->{$k}{mid}\n";
 	if ($useStrand) {
-		push (@sorted_plus_starts, $data->{$k}{plus}{start});
-		push (@sorted_minus_starts, $data->{$k}{minus}{start});
+		if($data->{$k}{plus}{start}) { push (@sorted_plus_starts, $data->{$k}{plus}{start}); }
+		if($data->{$k}{minus}{start}) { push (@sorted_minus_starts, $data->{$k}{minus}{start}); }
 	}
 	else {
-		push (@sorted_mids, $data->{$k}{mid});
+		if($data->{$k}{mid}) { push (@sorted_mids, $data->{$k}{mid}); }
+		
 	}
 }
+
 
 if ($useStrand) {
 	print STDERR join("\t", "plus starts: $#sorted_plus_starts",  "minus starts: $#sorted_minus_starts"),"\n";
@@ -332,6 +340,35 @@ if ($useStrand) {
 print STDERR "done in ", time()-$timer2, " seconds.\n";
 $timer2= time();
 
+# check for piles of considerable size
+my @piles;
+if ($useStrand) {
+	@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_plus_starts);
+}
+else{
+	@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_mids);
+}
+
+my $max_pile=max(@piles);
+print STDERR $#piles+1," piles above $piles_filtering_threshold has been detected.\n",
+"Max pile size: $max_pile\n",
+"Average pile size: ",floor(average(\@piles))," \x{B1} ", floor( stdev(\@piles) ), "\n",
+"Median pile size: ",median(@piles),"\n";
+
+if($max_pile>=$piles_filtering_threshold) {
+	print STDERR "\n================================================================\n",
+	"        WARNING: low complexity regions has been detected!\n";
+	
+	if($detectPiles) {
+		$apply_filter_flag=1;
+		$piles_filtering_threshold=$piles_filtering_threshold;
+		print STDERR "        automatically set piles filtering threshold to ",$piles_filtering_threshold,"\n";
+	}
+	else {
+		print STDERR "        consider setting up piles filtering threshold \nor use piles auto-detection (flag: --detectPiles )\n";
+	}
+	print STDERR "================================================================\n\n";
+}
 
 # remove nucleosomoes without repeat ($pile>1)
 if ($pile>1) {
@@ -379,7 +416,6 @@ if ($apply_filter_flag) {
 		@sorted_mids = @temp;
 		undef @temp;	
 	}
-
 
 }
 
@@ -492,13 +528,14 @@ sub phasogram {
 		undef @other_starts;
 		#increment counter to display work progress
 		if ( $progress_counter == $i ) {
-			print STDERR ".";
 			$progress_counter+=$counter_step;
 			# last; # enable for testing
+            my $rounded = sprintf "%.2f", 100*$i/$#sorted_starts;
+            print STDERR $rounded,"% done             \r";
 		}
 	}
 	my @results = grep /\S/, @output_array;
-	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
+	print STDERR "\ndone in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
 	return(@results);
 }
 
@@ -526,6 +563,44 @@ sub min {
   return($min);
 }
 
+sub average{
+        my($data) = @_;
+        if (not @$data) {
+                die("Empty array!\n");
+        }
+        my $total = 0;
+        foreach (@$data) {
+                $total += $_;
+        }
+        my $average = $total / @$data;
+        return $average;
+}
+sub stdev{
+        my($data) = @_;
+        if(@$data == 1){
+                return 0;
+        }
+        my $average = &average($data);
+        my $sqtotal = 0;
+        foreach(@$data) {
+                $sqtotal += ($average-$_) ** 2;
+        }
+        my $std = ($sqtotal / (@$data-1)) ** 0.5;
+        return $std;
+}
+sub median
+{
+    my @vals = sort {$a <=> $b} @_;
+    my $len = @vals;
+    if($len%2) #odd?
+    {
+        return $vals[int($len/2)];
+    }
+    else #even
+    {
+        return ($vals[int($len/2)-1] + $vals[int($len/2)])/2;
+    }
+}
 #--------------------------------------------------------------------------
 # Check for problem with the options or if user requests help
 sub check_opts {
@@ -639,6 +714,30 @@ sub filter_by_threshold {
 	my @results = grep /\S/, @piled_under_threshold;
 	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
 	return(@results);
+}
+
+sub check_piles {
+	my ($piles_filtering_threshold, $pile_delta, @sorted_coords) = @_;
+	print STDERR "- check piles above $piles_filtering_threshold ...";
+	my $pile_counter=0;
+	my @piles;
+	my @temp;
+	
+	for (my $i=1; $i<=$#sorted_coords; $i++) {
+		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
+		if ( ($sorted_coords[$i] >= $sorted_coords[$i-1]-$pile_delta ) && ($sorted_coords[$i] <= $sorted_coords[$i-1]+$pile_delta) ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
+		} elsif ($pile_counter >= $piles_filtering_threshold) {
+			push @piles, $pile_counter;
+			
+			undef @temp;
+			$pile_counter=0;
+		} 
+	
+	}
+	print STDERR "done in ", time()-$timer2, " seconds. \n";
+	return(@piles);
 }
 
 sub local_pile_filter {

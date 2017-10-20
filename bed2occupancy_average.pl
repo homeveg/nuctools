@@ -288,8 +288,9 @@ sub BED_2_OCC {
         $offset += $n;
 		
         if(int($processed_memory_size/1048576)>= $filesize/10) {
-            print STDERR "."; $processed_memory_size=0;
-            }
+            print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.            \r";
+            $processed_memory_size=0;
+        }
         undef @lines;
         $buffer = "";
     }
@@ -314,14 +315,22 @@ sub BED_2_OCC {
  
     # modify running average by shifting
     if (!$region_end) {	$region_end=$#occup; }
-	my $LibSize_norm_factor = ($line_counter)/($region_end-$region_start);	
+	my $LibSize_norm_factor = ($line_counter)/($region_end-$region_start);
+    
+    my $counter=0;
 	if ($running_window > 1 ) {
 		print STDERR "calculating and printing normalized occupancy with a running window +/- ",$running_window,"\nPlease wait...";
 		for (my $i=$region_start; $i<$region_end; $i+=$running_window) {
 			my $sum=sum(@occup[$i..$i+$running_window]);
 			my $average = $sum/$running_window;
 			my $normalized_occupancy = $average/$LibSize_norm_factor;
-			print $OUT_FHs join ("\t", $i+$running_window,$normalized_occupancy),"\n";	    
+			print $OUT_FHs join ("\t", $i+$running_window,$normalized_occupancy),"\n";
+            $counter++;
+            
+            if( $counter >= $line_counter/20 ) {
+                print STDERR "."; $counter=0;
+            }
+
 		}
 		print STDERR "done\n";
 	}
@@ -330,8 +339,13 @@ sub BED_2_OCC {
 		for (my $i=$region_start; $i<$region_end; $i++) {			
 			if ($occup[$i] !=0) {
 				my $normalized_occupancy = $occup[$i]/$LibSize_norm_factor;
-				print $OUT_FHs join ("\t", $i, $normalized_occupancy),"\n";	    
+				print $OUT_FHs join ("\t", $i, $normalized_occupancy),"\n";
 			}
+            $counter++;
+            if( $counter >= $line_counter/20 ) {
+                print STDERR "."; $counter=0;
+            }
+
 		}
 		print STDERR "done\n";
 	}
