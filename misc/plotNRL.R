@@ -42,6 +42,7 @@ load_data<-function(wd,sample) {
   #remove first element
   df<-df[-1,]
   print(head(df))
+  print(paste("Max: ", max(df$frequency),"; Min: ", min(df$frequency), sep=""))
   return(df)
 }
 
@@ -123,7 +124,7 @@ plot_approx<-function(df, sampleID, subtitle, sample_info, peaks_tweek, wd, outp
     ) + 
     # draw peaks tops
     geom_point(data=peaks.df, col="red", aes(x=distance, y=frequency)) + 
-    geom_text(data=peaks.df,aes(label=format(round_any(peaks.df$frequency,1000,f=ceiling), scientific=TRUE)),hjust=0, vjust=0, nudge_x = 5, nudge_y = 5, size=5, angle = 45)
+    geom_text(data=peaks.df,aes(label=format(round_any(peaks.df$frequency,100,f=ceiling), scientific=TRUE)),hjust=0, vjust=0, nudge_x = 5, nudge_y = 5, size=5, angle = 45)
   
   # linear regression on peaks 
   reg.df <- data.frame(x=seq(1:dim(peaks.df)[1]), y=peaks.df$distance)
@@ -153,8 +154,8 @@ peaks_tweek<-1
 option_list = list(
   make_option("--input", type="character", default=NULL, 
               help="Nucleosome repeat length file name", metavar="NRL.txt"),
-  make_option("--out", type="character", default="out.PNG", 
-              help="output figure file name [default= %default]", metavar="NRLplot.png"),
+  make_option("--out", type="character", default=NULL, 
+              help="output figure file name", metavar="NRLplot.png"),
   make_option("--dir", type="character", default=NULL, 
               help="path to working directory", metavar="path"),
   make_option("--info", type="character", default=NULL, 
@@ -163,10 +164,10 @@ option_list = list(
               help="Sample name", metavar="sample ID"),
   make_option("--maxX", type="integer", default=1000, 
               help="X-axis maximum [default= %default]", metavar="1000"),
-  make_option("--maxY", type="integer", default=10000, 
-              help="Y-axis maximum [default= %default]", metavar="10000"),
-  make_option("--minY", type="integer", default=1000, 
-              help="Y-axis minimum [default= %default]", metavar="1000"),
+  make_option("--maxY", type="integer", default=NULL, 
+              help="Y-axis maximum ", metavar="10000"),
+  make_option("--minY", type="integer", default=NULL, 
+              help="Y-axis minimum", metavar="1000"),
   make_option("--span", type="double", default=0.05, 
               help="LOESS aproximation span [default= %default]", metavar="[0-1]"),
   make_option("--peakW", type="integer", default=20, 
@@ -187,23 +188,41 @@ if (is.null(opt$dir)){
   print_help(opt_parser)
   stop("Please specify path to a working directory.", call.=FALSE)
 }
+
 wd <- opt$dir
 
 sampleID <- opt$sample
-sample_info <- opt$info
 xlim<-opt$maxX
-ylim<-c(opt$minY,opt$maxY)
 span<-opt$span
 w<-opt$peakW
+
+if (is.null(opt$info)){
+  opt$info<-paste("span=",span, ", window=",w,sep="")
+}
+sample_info <- opt$info
+
+if (is.null(opt$out)){
+  opt$out<-paste(sampleID,"_span_",span,"_win_",w,".png",sep="")
+}
 
 subtitle.NRL<-c("Nucleosome repeat length")
 df.NRL<-load_data(wd,opt$input)
 dim(df.NRL)
 
+if (is.null(opt$minY)){
+  opt$minY<-min(df.NRL$frequency)
+}
+if (is.null(opt$maxY)){
+  opt$maxY<-max(df.NRL$frequency)
+}
+ylim<-c(opt$minY,opt$maxY)
+
+
 figure.NRL<-plot_approx(df.NRL[1:xlim,], sampleID, subtitle.NRL, sample_info, peaks_tweek, wd,output.NRL, ylim, xlim, span, w)
 print(figure.NRL)
-ggsave(paste(wd,opt$out,sep="/"), device = "png", width = 10, height = 10, dpi = 300)
 print(paste("saving figure to", paste(wd,opt$out,sep="/") ) )
+
+ggsave(paste(wd,opt$out,sep="/"), plot=figure.NRL, device = "png", width = 16, height = 12, units="in", dpi = 300)
 #dev.off()
 
 
