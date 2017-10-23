@@ -103,7 +103,7 @@ plot_approx<-function(df, sampleID, subtitle, sample_info, peaks_tweek, wd, outp
   
   p <- ggplot(df, aes(x=distance, y=frequency)) + 
     #stat_smooth(size = 1, se = TRUE, method = "loess", span = span, aes(outfit=fit<<-..y..)) + 
-    geom_point(size=0.05) + 
+    geom_line(size=0.5, alpha=.5, col="darkorange") + 
     geom_line(aes(x=distance, y=loess_line), col="royalblue", size=1) +
     geom_line(aes(x=distance, y=plus_se), lty=2, col="royalblue", alpha=.5) +
     geom_line(aes(x=distance, y=minus_se), lty=2, col="royalblue") +
