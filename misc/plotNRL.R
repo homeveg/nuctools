@@ -165,13 +165,13 @@ option_list = list(
   make_option("--maxX", type="integer", default=1000, 
               help="X-axis maximum [default= %default]", metavar="1000"),
   make_option("--maxY", type="integer", default=NULL, 
-              help="Y-axis maximum ", metavar="10000"),
+              help="Y-axis maximum [default= auto-detect maximum]", metavar="10000"),
   make_option("--minY", type="integer", default=NULL, 
-              help="Y-axis minimum", metavar="1000"),
+              help="Y-axis minimum [default= auto-detect minimum]", metavar="1000"),
   make_option("--span", type="double", default=0.05, 
-              help="LOESS aproximation span [default= %default]", metavar="[0-1]"),
+              help="LOESS approximation span [default= %default]", metavar="[0-1]"),
   make_option("--peakW", type="integer", default=20, 
-              help="peak width and minimal disatnce between 2 adjacent peaks [default= %default]", metavar="20")
+              help="peak width and minimal distance between 2 adjacent peaks [default= %default]", metavar="20")
 ); 
 
 # parse arguments
@@ -190,7 +190,6 @@ if (is.null(opt$dir)){
 }
 
 wd <- opt$dir
-
 sampleID <- opt$sample
 xlim<-opt$maxX
 span<-opt$span
@@ -224,5 +223,4 @@ print(paste("saving figure to", paste(wd,opt$out,sep="/") ) )
 
 ggsave(paste(wd,opt$out,sep="/"), plot=figure.NRL, device = "png", width = 16, height = 12, units="in", dpi = 300)
 #dev.off()
-
 
