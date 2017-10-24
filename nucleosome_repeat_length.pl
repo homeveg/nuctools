@@ -25,6 +25,7 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
 
    parameters with default values:
     --delta | -d                  maximum distance from start of the reference nucleosome to the last in calculations (default: 1500)
+    --pile_delta | -pD            maximum distance between adjacent nucleosome starts to consider as one pile (default: 5)
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
 	--MaxNr | -m                  set maximum number of adjacent reads to analyze (default: 1000000 )
@@ -146,7 +147,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'delta|d=i' => \$delta,
 	'pile|p=i'   => \$pile,
-	'pile_delta|dP=i'   => \$pile_delta,
+	'pile_delta|pD=i'   => \$pile_delta,
 	'filtering_threshold|t=i'   => \$piles_filtering_threshold,
 	'MaxNr|m=i' => \$MaxNr,
 

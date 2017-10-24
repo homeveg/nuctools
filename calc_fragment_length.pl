@@ -26,12 +26,13 @@ perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt>
     --delta | -d                  maximum distance from start of the origin nucleosome to the last in calculations (default: 400)
     --filtering_threshold | -t    remove nucleosome piles above threshold (default: 20)
     --pile | -p                   define minimal pile size (default: 1)
-    --pile_delta | -dP            maximum distance between adjacent nucleosome starts to consider as one pile (default: 0)
+    --pile_delta | -pD            maximum distance between adjacent nucleosome starts to consider as one pile (default: 5)
 	--MaxNr | -m                  set maximum number adjacent reads to analyze (default: 1000000 )
    
    flags:
     --apply_filter | -f           apply --filtering_threshold to the data
     --fix_pile_size | -s          only consider nucleosomes in piles of the defined size (requires -p parameter)
+	--detectPiles | -dP           auto-detect piles of considerable size and apply --filtering_threshold to the data
 
 	--help | h                 Help
 	
@@ -92,6 +93,8 @@ perl -w calc_fragment_length.pl --input=<in.bed> --output=<filtered.txt>
 use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
+use POSIX;
+
 #use List::MoreUtils qw/pairwise/;
 
 # optional gzip support if modules are installed
@@ -107,7 +110,8 @@ use List::Util qw(first);
 
 # Default parametrs
 my $delta = 400;
-my $pile_delta = 0;
+my $pile_delta = 5;
+my $detectPiles;
 my $pile = 1;
 my $in_file; 
 my $out_path1; 
@@ -139,7 +143,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'delta|d=i' => \$delta,
 	'pile|p=i'   => \$pile,
 	'filtering_threshold|t=i'   => \$piles_filtering_threshold,
-	'pile_delta|dP=i'   => \$pile_delta,
+	'pile_delta|pD=i'   => \$pile_delta,
 	
 	'start_col|sC=i' => \$start_col,
 	'end_col|eC=i'   => \$end_col,
@@ -149,6 +153,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 
 	'fix_pile_size|s' => \$fix_pile_size,
 	'apply_filter|f'   => \$apply_filter_flag,
+    'detectPiles|dP'  => \$detectPiles,
 	'help|h'      => \$needsHelp
 );
 
@@ -223,6 +228,7 @@ $filesize = int($filesize/1048576); # filesize in megabytes
 print STDERR "- reading nucleosome start position column from $in_file ($filesize MBs).\nPlease wait...";
 
 my $processed_memory_size = 0;
+my $total_mbytes_loaded=0;
 my $offset=0;
 my $not_zero_counter=0;
 my $string_counter=0;
@@ -254,17 +260,29 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 		}
     }
 	$processed_memory_size += $n;
+    $total_mbytes_loaded += $n;
 	$offset += $n;
 	if(int($processed_memory_size/1048576)>= $filesize/10) {
-		print STDERR "."; $processed_memory_size=0;
+		print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.            \r";
+        $processed_memory_size=0;
 		}
 	undef @lines;
 	$buffer = "";
 	if($cancel_load) {last;}
 }
 
-close($inFH) or die $!; 
-print STDERR $filesize, " Mbs processed in ", time()-$timer2, " seconds.\n$not_zero_counter non zero counts\n\n";
+close($inFH) or die $!;
+$total_mbytes_loaded = sprintf "%.2f", $processed_memory_size/1048576;
+
+print STDERR $total_mbytes_loaded, " Mbs processed in ", time()-$timer2, " seconds.\n$not_zero_counter non zero counts\n\n";
+if ( $string_counter < $MaxNr ) {
+	print STDERR "file $in_file loaded to 100%\n\n"
+}
+else
+{
+	my $rounded = sprintf "%.2f", 100*$total_mbytes_loaded/$filesize;
+	print STDERR "file $in_file loaded to ", $rounded  , "%\n\n";
+}
 
 # sort nucleosome positions according to a start_nuc
 $timer2= time();
@@ -315,6 +333,34 @@ $timer2= time();
 print STDERR "- cleaning from empty strings minus_starts (if any)...";
 @sorted_minus_starts = grep /\S/, @sorted_minus_starts;
 print STDERR "done in ", time()-$timer2, " seconds. ",$#sorted_minus_starts+1," strings left\n";
+
+
+# check for piles of considerable size
+my @piles;
+@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_plus_starts);
+
+
+my $max_pile=max(@piles);
+print STDERR $#piles+1," piles above $piles_filtering_threshold has been detected.\n",
+"Max pile size: $max_pile\n",
+"Average pile size: ",floor(average(\@piles))," \x{B1} ", floor( stdev(\@piles) ), "\n",
+"Median pile size: ",median(@piles),"\n";
+
+if( ($max_pile>=$piles_filtering_threshold) && ( floor( stdev(\@piles) ) > floor(average(\@piles)) ) ){
+	print STDERR "\n================================================================\n",
+	"        WARNING: low complexity regions has been detected!\n";
+	
+	if($detectPiles) {
+		$apply_filter_flag=1;
+		$piles_filtering_threshold=$piles_filtering_threshold;
+		print STDERR "        automatically set piles filtering threshold to ",$piles_filtering_threshold,"\n";
+	}
+	else {
+		print STDERR "        consider setting up piles filtering threshold \nor use piles auto-detection (flag: --detectPiles )\n";
+	}
+	print STDERR "================================================================\n\n";
+}
+
 
 # remove nucleosomoes without repeat ($pile>1)
 if ($pile>1) {
@@ -431,23 +477,52 @@ sub min {
 
 #===========================================================#
 sub median {
-	my $median;
-	my @data = sort {$a <=> $b } @_;
-	if (even_odd($#data+1) eq "ODD") {
-	$median = $data[$#data/2];
-	}
-	else {
-	$median = Average($data[$#data/2],$data[($#data/2)+1]);
-	}
-	return($median);
+    my @vals = sort {$a <=> $b} @_;
+    my $len = @vals;
+    if($len%2) {
+        return $vals[int($len/2)];
+    }
+    else {
+        return ($vals[int($len/2)-1] + $vals[int($len/2)])/2;
+    }
 }
+
+#===========================================================#
+sub average{
+        my($data) = @_;
+        if (not @$data) {
+                die("Empty array!\n");
+        }
+        my $total = 0;
+        foreach (@$data) {
+                $total += $_;
+        }
+        my $average = $total / @$data;
+        return $average;
+}
+
+#===========================================================#
+sub stdev{
+        my($data) = @_;
+        if(@$data == 1){
+                return 0;
+        }
+        my $average = &average($data);
+        my $sqtotal = 0;
+        foreach(@$data) {
+                $sqtotal += ($average-$_) ** 2;
+        }
+        my $std = ($sqtotal / (@$data-1)) ** 0.5;
+        return $std;
+}
+
 #===========================================================#
 sub even_odd {
 	if (int($_[0]/2) == $_[0]/2) { return "EVEN"; }
 	else {return "ODD";}
 }
 
-#--------------------------------------------------------------------------
+#============================================================================
 # Check for problem with the options or if user requests help
 sub check_opts {
 	if ($needsHelp) {
@@ -480,6 +555,7 @@ sub check_opts {
 
 }
 
+#============================================================================
 sub hash_crawler {
     my ($value, @prefix_array) = @_;
     my @results = ();
@@ -493,6 +569,7 @@ sub hash_crawler {
     return @results;
 }
 
+#============================================================================
 sub remove_unpiled {
 	my ($pile, $fix_pile_size, $pile_delta, @sorted_coords) = @_;
 	my @only_piled = ();
@@ -534,6 +611,7 @@ sub remove_unpiled {
 	
 }
 
+#============================================================================
 sub filter_by_threshold {
 	my ($piles_filtering_threshold, $pile_delta, @sorted_coords) = @_;
 	print STDERR "- apply local pile filter: removing reads in the pile above $piles_filtering_threshold ...";
@@ -562,6 +640,7 @@ sub filter_by_threshold {
 	return(@results);
 }
 
+#============================================================================
 sub local_pile_filter {
 	my ($piles_filtering_threshold, $pile_delta, @sorted_coords) = @_;
 	my @only_piled = ();
@@ -593,7 +672,7 @@ sub local_pile_filter {
 
 }
 
-
+#============================================================================
 sub distogram {
 	my ($sorted_starts_ref, $sorted_ends_ref, $delta) = @_;
 	
@@ -647,4 +726,29 @@ sub distogram {
 	my @results = grep /\S/, @output_array;
 	print STDERR "done in ", time()-$timer2, " seconds. ",$#results+1," strings left\n";
 	return(@results);
+}
+
+#============================================================================
+sub check_piles {
+	my ($piles_filtering_threshold, $pile_delta, @sorted_coords) = @_;
+	print STDERR "- check piles above $piles_filtering_threshold ...";
+	my $pile_counter=0;
+	my @piles;
+	my @temp;
+	
+	for (my $i=1; $i<=$#sorted_coords; $i++) {
+		if (!@temp) { push(@temp,$sorted_coords[$i-1]); }
+		if ( ($sorted_coords[$i] >= $sorted_coords[$i-1]-$pile_delta ) && ($sorted_coords[$i] <= $sorted_coords[$i-1]+$pile_delta) ) {
+			push(@temp,$sorted_coords[$i]);
+			$pile_counter++;
+		} elsif ($pile_counter >= $piles_filtering_threshold) {
+			push @piles, $pile_counter;
+			
+			undef @temp;
+			$pile_counter=0;
+		} 
+	
+	}
+	print STDERR "done in ", time()-$timer2, " seconds. \n\n";
+	return(@piles);
 }
