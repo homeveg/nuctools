@@ -291,6 +291,7 @@ sub BED_2_OCC {
             print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.            \r";
             $processed_memory_size=0;
         }
+
         undef @lines;
         $buffer = "";
     }
@@ -316,23 +317,23 @@ sub BED_2_OCC {
     # modify running average by shifting
     if (!$region_end) {	$region_end=$#occup; }
 	my $LibSize_norm_factor = ($line_counter)/($region_end-$region_start);
-    
-    my $counter=0;
+	my $counter=0;
+
 	if ($running_window > 1 ) {
-		print STDERR "calculating and printing normalized occupancy with a running window +/- ",$running_window,"\nPlease wait...";
+		print STDERR "calculating and printing normalized occupancy with a running window +/- ",$running_window,"\nPlease wait...\n";
 		for (my $i=$region_start; $i<$region_end; $i+=$running_window) {
 			my $sum=sum(@occup[$i..$i+$running_window]);
 			my $average = $sum/$running_window;
 			my $normalized_occupancy = $average/$LibSize_norm_factor;
-			print $OUT_FHs join ("\t", $i+$running_window,$normalized_occupancy),"\n";
-            $counter++;
-            
-            if( $counter >= $line_counter/20 ) {
-                print STDERR "."; $counter=0;
-            }
 
+			print $OUT_FHs join ("\t", $i+$running_window,$normalized_occupancy),"\n";	    
+            $counter++;
+            if( $counter >= $region_end/1000 ) {
+                my $rounded = sprintf "%.2f", 100*$counter/($region_end-$region_start);
+                print STDERR $rounded,"%: position $i from $region_end             \r"; $counter=0;
+            }
 		}
-		print STDERR "done\n";
+		print STDERR "\ndone\n";
 	}
 	else {
 		print STDERR "calculating and printing occupancy\nPlease wait...";
@@ -342,12 +343,14 @@ sub BED_2_OCC {
 				print $OUT_FHs join ("\t", $i, $normalized_occupancy),"\n";
 			}
             $counter++;
-            if( $counter >= $line_counter/20 ) {
-                print STDERR "."; $counter=0;
+
+            if( $counter >= $region_end/1000 ) {
+                my $rounded = sprintf "%.2f", 100*$counter/($region_end-$region_start);
+                print STDERR $rounded,"%: position $i from $region_end             \r"; $counter=0;
             }
 
 		}
-		print STDERR "done\n";
+		print STDERR "\ndone\n";
 	}
 
 
