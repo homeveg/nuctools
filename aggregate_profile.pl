@@ -48,7 +48,7 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --upper_threshold | -upT        set upper occupancy threshold to remove mapping/sequencing artifacts (Default: 10000)
     --lower_threshold | -loT        set lower occupancy threshold to avoid ORFs with low coverage (Default: 0)
     --overlap | -ov                 remove overlapping ranges from analysis: region starts should be located at least --overlap bases from each other (Default: 100)
-    --library_size | -lS            sequencing library size (to use with -LibsizeNorm)
+    --library_size | -lS            sequencing library size (to use with -LibsizeNorm and --score)
     --chromosome | -chr             limit analysis to regions derived from specified chromosome only
     
     --useCenter | -uC               Use middle of the region for alignment instead of start of the region
@@ -57,7 +57,7 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --fixed_strand | -fixS          ignore strand information and assign selected
     --invert_strand | -invS         invert start and stop strands
     --input_occ | -inOCC            use occupancy file as an input (*.occ or *.occ.gz)
-    --score                         calculate RPM value
+    --score                         calculate RPM value (requires --library_size)
     --save_aligned | -sA            save aligned matrix
     --Cut_tail | -noTail            do not use reads downstream from regions end within the downstream_delta
     --window | -w                   running window parameter equal to one provided in bed2occupancy_average.pl parameter. (Default: 100)
@@ -305,6 +305,11 @@ if ((!$library_size) && ($library_size_normalization)) {
     exit;
 }
 
+if ((!$library_size) && ($calc_score)) {
+    #code
+    warn "please specify library size!";
+    exit;
+}
 
 $out_path1 = $out_path1.".delta_".$delta_1."_".$delta_2.".txt.gz";
 $out_path2 = $out_path2.".delta_".$delta_1."_".$delta_2.".txt";
@@ -347,6 +352,7 @@ print STDERR "------- Normalization options: -------\n";
 if ($normalize) { print STDERR "normalize occupancy to a number of regions starts\n"; }
 if ($GeneLengthNorm) { print STDERR "normalize each region occupancy to the region length\n"; }
 if ($library_size_normalization) { print STDERR "Apply library size normalization\n";}
+if ($calc_score) { print STDERR "calculating RPM values\n"; }
 if ($PerBaseNorm) { print STDERR "Normalize aggregate profile by regions Nr. at each base\n"; }
 if ($verbose) { print STDERR "\n----------------------------\n print service information to the console\n"; }
 print STDERR "======================================\n";
@@ -578,7 +584,8 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     $processed_memory_size += $n;
     $offset += $n;
     if(int($processed_memory_size/1048576)>= $filesize/10) {
-	print STDERR "."; $processed_memory_size=0;
+		print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.            \r";
+        $processed_memory_size=0;
 	}
     undef @lines;
     $buffer = "";
@@ -587,6 +594,8 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 my $duration = time()-$timer2;
 my $NrLanes = keys %{ $annotation{$Chromosome} };
 print STDERR " done in ", time()-$timer2, " seconds.\n";
+my $total_mbytes_loaded = sprintf "%.2f", $processed_memory_size/1048576;
+print STDERR $total_mbytes_loaded, " Mbs processed \n\n";
 print STDERR $false_counter+$incomplete_lines_counter," strings from $total_counter failed to load. $incomplete_lines_counter strings recovered\n",
 "$NrLanes regions with annotation loaded\n",
 $total_counter-$loaded_lanes-$false_counter," coordinates out of range\n";
