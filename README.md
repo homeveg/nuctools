@@ -52,17 +52,17 @@ in the "test" directory. More details can be found in the INSTRUCTION section.
 
    b. convert sorted BAM files to BED using bowtie2bed.pl script (or alternatively with an external package bedTools):
    
-        $ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed.gz
+        $ perl -w bowtie2bed.pl -i /Path_to_folder_with/BAM/test_sorted.bam -verbose > /Path_to_folder_with/BED/test_sorted.bed
         $ bedtools bamtobed -i /Path_to_folder_with/BAM/test_sorted.bam | pigz > /Path_to_folder_with/BED/test_sorted.bed.gz
 
 5. Running NucTools:
    a. Extend single-end reads to the average DNA fragment size
    
-        $ extend_SE_reads.pl -in test.bed -out test.ext.bed.gz -fL 147
+        $ extend_SE_reads.pl -in test.bed -out test.ext.bed -fL 147
         
    b. Extract individual chromosomes from the whole-genome BED file
    
-        $ extract_chr_bed.pl -in test.ext.bed.gz -out test -d /Path_to_folder_with/BED/ -p chr 
+        $ extract_chr_bed.pl -in test.ext.bed -out test -d /Path_to_folder_with/BED/ -p chr 
         
    c. Convert all BED files to occupancy OCC files averaging nucleosomes occupancy values over the window of size 10
    
@@ -72,7 +72,7 @@ in the "test" directory. More details can be found in the INSTRUCTION section.
     
         $ aggregate_profile.pl -reg genome_annotation.tab -idC 0 -chrC 4 --strC 7 -sC 8 -eC 9 -pbN -lsN -lS <SeqLibSize> \
         -chr 1 -al /Path_to_folder_with/OCC/chr1.test.occ_matrix -av /Path_to_folder_with/OCC/chr1.test.aggregate \
-        -in /Path_to_folder_with/OCC/chr1.test.w10.occ.gz -upD 1000 -downD 1000
+        -in /Path_to_folder_with/OCC/chr1.test.w10.occ -upD 1000 -downD 1000
         
    e. Paste together aggregate profiles of each chromosome in one file and add a header
    
