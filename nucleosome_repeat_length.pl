@@ -160,6 +160,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'apply_filter|f'  => \$apply_filter_flag,
 	'detectPiles|dP'  => \$detectPiles,
 	'useStrand|uS' => \$useStrand,
+	'gzip|z' => \$useGZ,
 
 	'help|h'      => \$needsHelp
 );
@@ -250,12 +251,12 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     # process each line in zone file
     foreach my $line (@lines) {
 		chomp($line);
-		my @newline1=split(/\t/, $line);
-		my $start_nuc=$newline1[$start_col];
-		my $end_nuc=$newline1[$end_col];
+		my @row=split(/\t/, $line);
+		my $start_nuc=$row[$start_col];
+		my $end_nuc=$row[$end_col];
 
 		my $strand;
-		if ($useStrand) { $strand = $newline1[$strand_col] eq '+' ? 'plus' : 'minus' ; }
+		if ($useStrand) { $strand = $row[$strand_col] eq '+' ? 'plus' : 'minus' ; }
 		else { $strand = 'plus'; }
 		
 		if ($useStrand) {
@@ -371,7 +372,7 @@ if( ($max_pile>=$piles_filtering_threshold) && ( floor( stdev(\@piles) ) > floor
 	print STDERR "================================================================\n\n";
 }
 
-# remove nucleosomoes without repeat ($pile>1)
+# remove nucleosomoes without repeats ($pile>1)
 if ($pile>1) {
 	print STDERR "remove nucleosomoes without repeats\n";
 	my @temp;

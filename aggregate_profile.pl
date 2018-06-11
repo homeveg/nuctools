@@ -904,16 +904,16 @@ foreach my $chrom (sort { $a<=>$b || $a cmp $b } keys %occupancy) {
 		}
 	
 		
-		if($apply_DivSum_normalization eq "yes") {
-			my $norm_factor += $_ for @splice_array;
-			if ($norm_factor == 0) { @splice_array = (0) x ($delta_1+$delta_2+1); }
-			else {
-				my @temp_array = map { $_ / $norm_factor } @splice_array;
-				undef @splice_array;
-				@splice_array=@temp_array;
-				undef @temp_array;
-				}
-			}
+		#if($apply_DivSum_normalization eq "yes") {
+		#	my $norm_factor += $_ for @splice_array;
+		#	if ($norm_factor == 0) { @splice_array = (0) x ($delta_1+$delta_2+1); }
+		#	else {
+		#		my @temp_array = map { $_ / $norm_factor } @splice_array;
+		#		undef @splice_array;
+		#		@splice_array=@temp_array;
+		#		undef @temp_array;
+		#		}
+		#	}
 		
 		my $temp_string;
 		if ($calc_score) {
