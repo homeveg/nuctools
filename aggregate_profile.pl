@@ -418,7 +418,7 @@ while (<LIST_FILE>) {
 			my $selected_chr=$Chromosome;
 			$list_chr =~ s/chr//i;
 			$selected_chr =~ s/chr//i;
-			if ($list_chr == $selected_chr ) {
+			if ( ($list_chr == $selected_chr ) or ($list_chr eq $selected_chr) ) {
 				push(@LIST_array, $text);
 			}
 		}
