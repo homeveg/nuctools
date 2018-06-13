@@ -114,6 +114,14 @@ elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGzip) ) {
 }
 else {
 	print STDERR "ZGIP support disabled\n";
+	if ( ( ($path_tab1 =~ (/.*\.gz$/)) or ($path_tab2 =~ (/.*\.gz$/)) ) and (!$useGzip) ) {
+		print STDERR "======================================\n";
+		print STDERR "WARNING! Input file probably compressed!\n";
+		print STDERR "Use --gzip parameter to enable support for file compression/decompression!";
+		print STDERR "======================================\n";
+		exit;
+	}
+
 }
 print STDERR "table 1:",$path_tab1, "\n";
 print STDERR "table 2:",$path_tab2, "\n";

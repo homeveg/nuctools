@@ -116,6 +116,13 @@ elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
 }
 else {
 	print STDERR "ZGIP support disabled\n";
+	if ( ($infile =~ (/.*\.gz$/))  and (!$useGZ) ) {
+		print STDERR "======================================\n";
+		print STDERR "WARNING! Input file probably compressed!\n";
+		print STDERR "Use --gzip parameter to enable support for file compression/decompression!";
+		print STDERR "======================================\n";
+		exit;
+	}
 }
 # open pipe to Gzip or open text file for writing
   my ($gz_out_file,$out_file,$OUT_FHs);

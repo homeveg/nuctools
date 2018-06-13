@@ -136,6 +136,13 @@ elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
 }
 else {
 	print STDERR "ZGIP support disabled\n";
+	if ( ($filename_pattern =~ (/.*\.gz$/))  and (!$useGZ) ) {
+		print STDERR "======================================\n";
+		print STDERR "WARNING! Input files are probably compressed!\n";
+		print STDERR "Use --gzip parameter to enable support for file compression/decompression!";
+		print STDERR "======================================\n";
+		exit;
+	}
 }
 
 
