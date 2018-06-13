@@ -119,7 +119,6 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'printData|d' => \$addData,
 	'sum|s' => \$printSum,
 	'gzip|z' => \$useGZ,
-	'list|l=s' => \$list_file,
 	
 	'help|h'      => \$needsHelp
 );
@@ -164,14 +163,20 @@ if ($list_file) {
 	closedir(DIR);
 }
 
+print STDERR "processing $#all_files files: reading files matching pattern .*.$filename_pattern$...\n";
+my $filecounter=1;
 foreach my $file (sort @all_files){
-  if ($file =~ m/.*\.$filename_pattern$/){
-	push(@files, $file);
-	my $file_name = basename($file,  "\.$filename_pattern");
-	my $dir_name = dirname($file,  "\.$filename_pattern");
-	push(@names, $file_name);
-	push(@dirs, $dir_name);
+	print STDERR "$filecounter from ",$#all_files,": $file\t";
+	if ($file =~ m/.*\.$filename_pattern$/){
+		print STDERR "reading...";
+		push(@files, $file);
+		my $file_name = basename($file,  "\.$filename_pattern");
+		my $dir_name = dirname($file,  "\.$filename_pattern");
+		push(@names, $file_name);
+		push(@dirs, $dir_name);
 	}
+	$filecounter++;
+	print STDERR "\n";
 }
 
 for (my $i=0; $i<=$#files; $i++) {
