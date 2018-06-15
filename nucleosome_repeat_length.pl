@@ -34,8 +34,12 @@ perl -w nucleosome_repeat_length.pl --input=<in.bed> --output=<filtered.txt> \
     --apply_filter | -f           apply --filtering_threshold to the data
 	--detectPiles | -dP           auto-detect piles of considerable size and apply --filtering_threshold to the data
     --fix_pile_size | -s          only consider nucleosomes in piles of the defined size (requires -p parameter)
-    --useStrand | -uS             use strand information (for single-end sequencing reads)
 	
+   alignment settings (default behavior: align mid point):
+    --useStrand | -uS             use strand information (for single-end sequencing reads)
+	--alignStarts | -aS           use read start to align nucleosomes. Please note: --alignStarts, --alignEnds and --useStrand flags are mutually exclusive!
+	--alignEnds | -aE             use read ends to align nucleosomes. Please note: --alignStarts, --alignEnds and --useStrand flags are mutually exclusive!
+
 	--help | h                    Help
 	
  Example usage:
@@ -139,6 +143,8 @@ my $MaxNr=1000000;
 my $needsHelp;
 my $useGZ;
 my $useStrand;
+my $alignStarts;
+my $alignEnds;
 
 #read arguments from command line
 my $options_okay = &Getopt::Long::GetOptions(
@@ -160,6 +166,10 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'apply_filter|f'  => \$apply_filter_flag,
 	'detectPiles|dP'  => \$detectPiles,
 	'useStrand|uS' => \$useStrand,
+	
+	'alignStarts|aS' => \$alignStarts,
+	'alignEnds|aE' => \$alignEnds,
+
 	'gzip|z' => \$useGZ,
 
 	'help|h'      => \$needsHelp
@@ -201,7 +211,15 @@ if ( defined $fix_pile_size) { print STDERR "select only fix pile size: $pile\n"
 print STDERR "pile delta: ",$pile_delta, "\n";
 if ( defined $apply_filter_flag) { print STDERR "filter the data: remove all piles above $piles_filtering_threshold\n"; }
 if ( defined $detectPiles) { print STDERR "piles auto-detection has been activated. Piles filtering threshold set to $piles_filtering_threshold\n";}
-if ( defined $useStrand ) { print STDERR "analyzing single-end reads: use starnd from column $strand_col\n"; }
+if ( defined $alignStarts ) { print STDERR "single-end analysis mode: use read start to align nucleosomes\n";
+							  print STDERR "Please note: --alignStarts, --alignEnds and --useStrand flags are mutually exclusive!\n";
+							  print STDERR "disabling --alignEnds and --useStrand flags\n";
+							  undef $alignEnds; undef $useStrand;}
+if ( defined $alignEnds ) { print STDERR "single-end analysis mode: use read ends to align nucleosomes\n";
+							  print STDERR "Please note: --alignStarts, --alignEnds and --useStrand flags are mutually exclusive!\n";
+							  print STDERR "disabling --alignStarts and --useStrand flags\n";
+							  undef $alignStarts; undef $useStrand;}
+if ( defined $useStrand ) { print STDERR "analyzing single-end reads: use strand from column $strand_col\n"; }
 
 else { print STDERR "analyzing paired-end reads: ignore strand\n"; }
 print STDERR "Nr of reads to limit fragment length calculation: $MaxNr\n";
@@ -271,6 +289,12 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 			$hash{$string_counter}{$strand}{start}=$start_nuc;
 			$hash{$string_counter}{$strand}{end}=$end_nuc;
 		}
+		elsif ($alignStarts) {
+			$hash{$string_counter}{start}=$start_nuc;
+		}
+		elsif ($alignEnds) {
+			$hash{$string_counter}{end}=$start_nuc;
+		}
 		$hash{$string_counter}{mid}=min($end_nuc,$start_nuc)+int(abs($end_nuc-$start_nuc)/2);
 
 		$string_counter++;
@@ -321,16 +345,16 @@ my @sorted_hash = sort {
 	
 print STDERR "done in ", time()-$timer2, " seconds.\n\n";
 
-my (@sorted_plus_starts, @sorted_minus_starts, @sorted_mids );
+my (@sorted_plus_starts, @sorted_minus_starts, @sorted_mids, @sorted_starts, @sorted_ends );
 foreach my $k (@sorted_hash) {
     #print "$k: $data->{$k}{mid}\n";
 	if ($useStrand) {
 		if($data->{$k}{plus}{start}) { push (@sorted_plus_starts, $data->{$k}{plus}{start}); }
 		if($data->{$k}{minus}{start}) { push (@sorted_minus_starts, $data->{$k}{minus}{start}); }
 	}
-	else {
-		if($data->{$k}{mid}) { push (@sorted_mids, $data->{$k}{mid}); }
-		
+	elsif ($alignStarts) { push (@sorted_starts, $data->{$k}{start}); }
+	elsif ($alignEnds) { push (@sorted_ends, $data->{$k}{end}); }
+	else { if($data->{$k}{mid}) { push (@sorted_mids, $data->{$k}{mid}); }
 	}
 }
 
@@ -339,6 +363,16 @@ if ($useStrand) {
 	print STDERR join("\t", "plus starts: $#sorted_plus_starts",  "minus starts: $#sorted_minus_starts"),"\n";
 	for (my $i=0; $i<=10; $i++) {
 		print STDERR join("\t", $sorted_plus_starts[$i], $sorted_minus_starts[$i]),"\n";
+	}
+} elsif ($alignStarts) {
+	print STDERR "starts: $#sorted_starts\n";
+	for (my $i=0; $i<=10; $i++) {
+		print STDERR "$sorted_starts[$i]\n";
+	}
+} elsif ($alignEnds) {
+	print STDERR "ends: $#sorted_ends\n";
+	for (my $i=0; $i<=10; $i++) {
+		print STDERR "$sorted_ends[$i]\n";
 	}
 } else {
 	print STDERR "mids: $#sorted_mids\n";
@@ -354,8 +388,11 @@ $timer2= time();
 my @piles;
 if ($useStrand) {
 	@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_plus_starts);
-}
-else{
+} elsif ($alignStarts) {
+	@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_starts);
+} elsif ($alignEnds) {
+	@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_ends);
+} else{
 	@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_mids);
 }
 
@@ -418,9 +455,18 @@ if ($apply_filter_flag) {
 		@temp = filter_by_threshold($piles_filtering_threshold, floor($pile_delta/2), @sorted_minus_starts);
 		undef @sorted_minus_starts;
 		@sorted_minus_starts = @temp;
-		undef @temp;	
-	}
-	else {
+		undef @temp;
+	} elsif ($alignStarts) {
+		@temp = filter_by_threshold($piles_filtering_threshold, floor($pile_delta/2), @sorted_starts);
+		undef @sorted_starts;
+		@sorted_starts = @temp;
+		undef @temp;		
+	} elsif ($alignEnds) {
+		@temp = filter_by_threshold($piles_filtering_threshold, floor($pile_delta/2), @sorted_ends);
+		undef @sorted_ends;
+		@sorted_ends = @temp;
+		undef @temp;		
+	} else {
 		@temp = filter_by_threshold($piles_filtering_threshold, floor($pile_delta/2), @sorted_mids);
 		undef @sorted_mids;
 		@sorted_mids = @temp;
@@ -442,8 +488,17 @@ if ($fix_pile_size ) {
 		undef @sorted_minus_starts;
 		@sorted_minus_starts = @temp;
 		undef @temp;
-	}
-	else {
+	} elsif ($alignStarts) {
+		@temp = local_pile_filter($pile, floor($pile_delta/2), @sorted_starts);
+		undef @sorted_starts;
+		@sorted_starts = @temp;
+		undef @temp;		
+	} elsif ($alignEnds) {
+		@temp = local_pile_filter($pile, floor($pile_delta/2), @sorted_ends);
+		undef @sorted_ends;
+		@sorted_ends = @temp;
+		undef @temp;
+	} else {
 		@temp = local_pile_filter($pile, floor($pile_delta/2), @sorted_mids);
 		undef @sorted_mids;
 		@sorted_mids = @temp;
@@ -453,12 +508,15 @@ if ($fix_pile_size ) {
 
 print STDERR "\nCalculating phasograms...\n";
 $timer2= time();
-my (@output_plus_array,@output_minus_array,@output_mids_array);
+my (@output_plus_array,@output_minus_array,@output_mids_array,@output_starts_array,@output_ends_array);
 if ($useStrand) {
 	@output_minus_array=phasogram(\@sorted_minus_starts, $delta);
 	@output_plus_array=phasogram(\@sorted_plus_starts, $delta);
-	}
-else {
+	} elsif ($alignStarts) {
+	@output_starts_array=phasogram(\@sorted_starts, $delta);
+	} elsif ($alignEnds) {
+	@output_ends_array=phasogram(\@sorted_ends, $delta);
+	} else {
 	@output_mids_array=phasogram(\@sorted_mids, $delta);
 }
 
@@ -466,10 +524,15 @@ print STDERR "saving results to $out_path1...";
 # open pipe to text file for writing
 open my $OUT_FHs, '>', $out_path1 or die "Can't open $out_path1 for writing; $!\n";
 my $maxind;
-if ($useStrand) {$maxind=$#output_plus_array;}
-else {$maxind=$#output_mids_array;}
+if ($useStrand) { $maxind=$#output_plus_array;}
+elsif ($alignStarts) { $maxind=$#output_starts_array;}
+elsif ($alignEnds) { $maxind=$#output_ends_array;}
+else { 	$maxind=$#output_mids_array; }
+
 for (my $ind=0; $ind<=$maxind; $ind++) {
 	if ($useStrand) { print $OUT_FHs join("\t", $output_plus_array[$ind], $output_minus_array[$ind]),"\n"; }
+    elsif ($alignStarts) { print $OUT_FHs $output_starts_array[$ind],"\n"; }
+	elsif ($alignEnds) { print $OUT_FHs $output_ends_array[$ind],"\n"; }
 	else { print $OUT_FHs $output_mids_array[$ind],"\n"; }
 }
 close ($OUT_FHs);
@@ -488,6 +551,9 @@ print STDERR "$message\nBye!\n";
 
 undef @output_plus_array;
 undef @output_minus_array;
+undef @output_mids_array;
+undef @output_starts_array;
+undef @output_ends_array;
 
 exit;
 
