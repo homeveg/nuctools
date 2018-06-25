@@ -132,17 +132,10 @@ if ( ((!$ModuleGzipIsLoaded) or (!$ModuleGunzipIsLoaded)) and ($useGZ) ) {
 	exit;
 }
 elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
-	print STDERR "ZGIP support enabled\n";
+	print STDERR "GZIP support enabled\n";
 }
 else {
 	print STDERR "ZGIP support disabled\n";
-	if ( ($filename_pattern =~ (/.*\.gz$/))  and (!$useGZ) ) {
-		print STDERR "======================================\n";
-		print STDERR "WARNING! Input files are probably compressed!\n";
-		print STDERR "Use --gzip parameter to enable support for file compression/decompression!";
-		print STDERR "======================================\n";
-		exit;
-	}
 }
 
 
@@ -170,27 +163,18 @@ if ($list_file) {
 	closedir(DIR);
 }
 
-print STDERR "processing $#all_files files: reading files matching pattern .*.$filename_pattern$...\n";
-my $filecounter=1;
 foreach my $file (sort @all_files){
-	print STDERR "$filecounter from ",$#all_files,": $file\t";
-	if ($file =~ m/.*\.$filename_pattern$/){
-		print STDERR "reading...";
-		push(@files, $file);
-		my $file_name = basename($file,  "\.$filename_pattern");
-		my $dir_name = dirname($file,  "\.$filename_pattern");
-		push(@names, $file_name);
-		push(@dirs, $dir_name);
+  if ($file =~ m/.*\.$filename_pattern$/){
+	push(@files, $file);
+	my $file_name = basename($file,  "\.$filename_pattern");
+	push(@names, $file_name);
 	}
-	$filecounter++;
-	print STDERR "\n";
 }
 
 for (my $i=0; $i<=$#files; $i++) {
 	my $file_name = $names[$i];
 	my $file = $files[$i];
-	my $dir = $dirs[$i];
-	$NormFactors{$file_name} = ReadFile("$file", $file_name, $coordsCol, $occupCol, \%occupancy, @names);
+	$NormFactors{$file_name} = ReadFile("$wd/$file", $file_name, $coordsCol, $occupCol, \%occupancy, @names);
 }
 print STDERR "calculating StDev, Variance, Sum and average.\nResults will be saved to $output\n";
 
@@ -210,6 +194,8 @@ print STDERR "calculating StDev, Variance, Sum and average.\nResults will be sav
 if ($addData) {
 	if ($printSum) { print $OUT_FHs join("\t","position","Mean","Sum","stdev","Rel.Error", @names);   }
 	else { print $OUT_FHs join("\t","position","Mean","stdev","Rel.Error", @names); }
+} else {
+	 print $OUT_FHs join("\t","position","Mean","stdev","rel.err."),"\n";
 }
 
 my $header=0; my $old_position;
@@ -228,7 +214,7 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
     $j++;
     my @temp; my $coord;
     for my $name ( sort keys %{ $occupancy{$position} }) {
-			if ( ($header==0) && ($addData eq "yes") ){ print $OUT_FHs "\t$name"; }
+			if ( ($header==0) && ($addData) ){ print $OUT_FHs "\t$name"; }
 			my $occup;
 			if ($NormFactors{$name}==0) {
 				print STDERR "index:$j\tname:$name\tposition:$position\tnorm factor:$NormFactors{$name}\toccupancy:$occupancy{$position}{$name}\tratio:NA\n";
