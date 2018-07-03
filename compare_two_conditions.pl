@@ -112,8 +112,8 @@ BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gz
 my ($input1,$input2);
 my $Col_signal=1;
 my $Col_coord=0;
-my $threshold1=0.8;
-my $threshold2=0.5;
+my $threshold1=0.99;
+my $threshold2=-0.99;
 my ($output1,$output2);
 my $chromosome;
 my $windowSize=100;
@@ -223,7 +223,7 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
 	my $occup1 = $occupancy{$position}{1};
 	my $occup2 = $occupancy{$position}{2};
 	
-	my $norm_difference=abs(2*($occup1-$occup2)/($occup1+$occup2));
+	my $norm_difference=2*($occup1-$occup2)/($occup1+$occup2);
 
     my $start_region = $position-$windowSize;
     my $end_region = $position;
