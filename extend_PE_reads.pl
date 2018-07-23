@@ -97,7 +97,7 @@ my $needsHelp;
 my $useGZ;
 my $verbose;
 my $NucLength = 1000;
-my $fragment_length = 147;
+my $fragment_length = 147; 
 my $extendFragment;
 
 my $options_okay = &Getopt::Long::GetOptions(
