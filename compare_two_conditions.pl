@@ -223,7 +223,7 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
 	my $occup1 = $occupancy{$position}{1};
 	my $occup2 = $occupancy{$position}{2};
 	
-	my $norm_difference=2*($occup1-$occup2)/($occup1+$occup2);
+	my $norm_difference=abs 2*($occup1-$occup2)/($occup1+$occup2);
 
     my $start_region = $position-$windowSize;
     my $end_region = $position;

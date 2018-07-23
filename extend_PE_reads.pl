@@ -18,7 +18,9 @@ perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--verbose --help]
     --NucLength | -nl  maximum expected read length (default: 1000)
     --gzip | -z        compress the output
     --verbose | -v     print converted output to STDOUT
-	
+    --fragment | -fL   average DNA fragment length (default: -fL 147)
+	--extend | -e      extend fragments to the length defined by a "--fragment" option (default: -fL 147)
+
 	--help | h                 Help
 	
  Example usage:
@@ -80,6 +82,8 @@ use strict;
 use Getopt::Long;
 use Pod::Usage;
 use List::Util qw(min max);
+use Time::localtime;
+use Time::Local;
 
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
@@ -93,6 +97,8 @@ my $needsHelp;
 my $useGZ;
 my $verbose;
 my $NucLength = 1000;
+my $fragment_length = 147;
+my $extendFragment;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
@@ -100,6 +106,8 @@ my $options_okay = &Getopt::Long::GetOptions(
     'NucLength|nl=s' => \$NucLength,
 	'gzip|z' => \$useGZ,
 	'verbose'   => \$verbose,
+	'fragment|fL=s'   => \$fragment_length,
+	'extend|e'      => \$extendFragment,
 
 	'help|h'      => \$needsHelp
 );
@@ -125,6 +133,28 @@ else {
 		exit;
 	}
 }
+
+
+
+#  Time count Initialization
+my $timer1=time();
+my $tm = localtime;
+my $start_sec = $tm -> [0];
+my $start_min = $tm ->[1];
+my $start_hour = $tm ->[2];
+my $start_time = time();
+
+# Display input parameters
+print STDERR "======================================\n";
+print STDERR "Started:\t$start_hour:$start_min:$start_sec\n";
+print STDERR "======================================\n";
+print STDERR "in file:",$infile, "\n";
+print STDERR "out file:",$outfile, "\n";
+print STDERR "maximum fragment length: ",$NucLength, "\n";
+if ( defined $extendFragment) {
+	print STDERR "extend all short fragments symmetrically to an expected fragment length: $fragment_length\n";
+	}
+
 
 # open pipe to Gzip or open text file for writing
 my ($gz_out_file,$out_file,$OUT_FHs);
@@ -196,6 +226,10 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 	my $read_2=$newline2[3];
     
    	if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length < $NucLength))  {
+		if ( defined $extendFragment & ($nuc_length<$fragment_length) ){
+			my $delta=int ($fragment_length-$nuc_length)/2;
+			$min-=$delta;$max+=$delta;$nuc_length=$max - $min;
+		}
         print $OUT_FHs join("\t", $chr_name_1, $min, $max, $nuc_length), "\n";
         if ($verbose) {
             print STDOUT join("\t", $chr_name_1, $min, $max, $nuc_length), "\n";

@@ -360,7 +360,7 @@ sub BED_2_OCC {
 		print STDERR "\ndone\n";
 	}
 
-
+	undef @occup;
     close($OUT_FHs);    
     print STDERR "Job finished!\n$outfile generated in ", time()-$timer2, " seconds.\nGood bye!\n";
 
