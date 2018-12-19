@@ -6,11 +6,11 @@ compare_two_conditions.pl - identify regions with highest variance between contr
 
 =head1 SYNOPSIS
 
-perl -w compare_two_conditions.pl --input1=<healthy.txt> --input2=<patients.txt> --output1=<more_than1.txt> --output2=<less_than1.txt> --chromosome="chr1" [--windowSize=100 --threshold1=0.8 --threshold2=0.5 --Col_signal=1 --Col_coord=0 --verbose --help]
+perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.occ> --output1=<more_than1.txt> --output2=<less_than1.txt> --chromosome="chr1" [--windowSize=100 --threshold1=0.8 --threshold2=0.5 --Col_signal=1 --Col_coord=0 --verbose --help]
 
  Required arguments:
-    --input1 | -i1        input BED file or BED.GZ extended file (if option -dir is used)
-    --input2 | -i2        input BED file or BED.GZ extended file (if option -dir is used)
+    --input1 | -i1        input OCC file or OCC.GZ extended file (if option -dir is used)
+    --input2 | -i2        input OCC file or OCC.GZ extended file (if option -dir is used)
     --output1 | -o1       output high/low varience regions file (OCC.GZ)
     --output2 | -o2       output high/low varience regions file (OCC.GZ)
 	

@@ -20,7 +20,8 @@ perl -w extend_PE_reads.pl -in <in.bed> -out <out.bed> [--verbose --help]
     --verbose | -v     print converted output to STDOUT
     --fragment | -fL   average DNA fragment length (default: -fL 147)
 	--extend | -e      extend fragments to the length defined by a "--fragment" option (default: -fL 147)
-
+	--keepname | -kn   keep the read ID in the output bad file.
+	
 	--help | h                 Help
 	
  Example usage:
@@ -99,6 +100,7 @@ my $verbose;
 my $NucLength = 1000;
 my $fragment_length = 147; 
 my $extendFragment;
+my $keepName;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
@@ -108,6 +110,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	'verbose'   => \$verbose,
 	'fragment|fL=s'   => \$fragment_length,
 	'extend|e'      => \$extendFragment,
+	'keepname|kn'   => \$keepName,
 
 	'help|h'      => \$needsHelp
 );
@@ -153,6 +156,9 @@ print STDERR "out file:",$outfile, "\n";
 print STDERR "maximum fragment length: ",$NucLength, "\n";
 if ( defined $extendFragment) {
 	print STDERR "extend all short fragments symmetrically to an expected fragment length: $fragment_length\n";
+	}
+if ( defined $keepName) {
+	print STDERR "keep reads ID to the output\n";
 	}
 
 
@@ -230,9 +236,10 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 			my $delta=int ($fragment_length-$nuc_length)/2;
 			$min-=$delta;$max+=$delta;$nuc_length=$max - $min;
 		}
-        print $OUT_FHs join("\t", $chr_name_1, $min, $max, $nuc_length), "\n";
+		if ($keepName) { print $OUT_FHs join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n"; }
+		else { print $OUT_FHs join("\t", $chr_name_1, $min, $max, $nuc_length), "\n"; }
         if ($verbose) {
-            print STDOUT join("\t", $chr_name_1, $min, $max, $nuc_length), "\n";
+            print STDOUT join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n";
         }
 	}
 

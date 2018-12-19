@@ -330,10 +330,11 @@ sub BED_2_OCC {
 		print STDERR "calculating and printing normalized occupancy with a running window +/- ",$running_window,"\nPlease wait...\n";
 		for (my $i=$region_start; $i<$region_end; $i+=$running_window) {
 			my $sum=sum(@occup[$i..$i+$running_window]);
-			my $average = $sum/$running_window;
-			my $normalized_occupancy = $average/$LibSize_norm_factor;
-
-			print $OUT_FHs join ("\t", $i+$running_window,$normalized_occupancy),"\n";	    
+            if($sum != 0 ){
+                my $average = $sum/$running_window;
+                my $normalized_occupancy = $average/$LibSize_norm_factor;
+                print $OUT_FHs join ("\t", $i+$running_window,$normalized_occupancy),"\n";	    
+            }
             $counter++;
             if( $counter >= $region_end/1000 ) {
                 my $rounded = sprintf "%.2f", 100*$counter/($region_end-$region_start);

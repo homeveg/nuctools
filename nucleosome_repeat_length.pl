@@ -594,6 +594,7 @@ sub phasogram {
 			my $delta_nuc_starts = abs($other_nuc_start-$nuc_start);
 			if ($delta_nuc_starts>$delta) {
 				#print STDERR join("\t", "- $i", $n, $i+$n, $nuc_start, $other_nuc_start, $delta_nuc_starts, $#sorted_starts, $#other_starts), "\n";
+				$output_array[$delta_nuc_starts]++;
 				last;
 			}
 			else {
