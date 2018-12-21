@@ -85,7 +85,8 @@ use Pod::Usage;
 use List::Util qw(min max);
 use Time::localtime;
 use Time::Local;
-
+use POSIX;
+ 
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
 BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
@@ -233,7 +234,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     
    	if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length < $NucLength))  {
 		if ( defined $extendFragment & ($nuc_length<$fragment_length) ){
-			my $delta=int ($fragment_length-$nuc_length)/2;
+			my $delta=floor( ($fragment_length-$nuc_length)/2 );
 			$min-=$delta;$max+=$delta;$nuc_length=$max - $min;
 		}
 		if ($keepName) { print $OUT_FHs join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n"; }
