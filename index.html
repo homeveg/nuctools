@@ -254,6 +254,17 @@ For the moment we don't have a wrapper to run all 3 steps automatically so, each
 --occupCol=1 --pattern="occ.gz" --printData --sum [--help]  
 </code></pre>
 </li>
+  
+<li>
+<h3>
+<a id="compare_two_conditionspl" class="anchor" href="#compare_two_conditionspl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>compare_two_conditions.pl</h3>
+
+<p> compare_two_conditions.pl takes as an input average occupancy files for two conditions (which have been previously generated from several replicates using average_replicates.pl), and produces two files with regions of size windowSize, where the difference between the signal in condition 2 and condition 1 is correspondingly larger or smaller than threshold 1 and threshold 2. The normalized difference value between average ocuupanies could be in the range from -1 to +1. Values below lower threshold indicating decrease of nucleosom occupancy in corresponding region in sample 1 comparing to sample 2. Values above the threshold indicating the increase of nucleosome occupancy.</p>
+
+<pre><code>$ perl -w compare_two_conditions.pl --input1=&lt;path to average occupancy file 1&gt; --input2=&lt;path to average occupancy file 2&gt; --output1=&lt;path to "above-upper-threshold" results file &gt; --output2=&lt;path to "below-lower-threshold" results file &gt; --threshold1=-0.99 --threshold2=0.99 [--help]  
+</code></pre>
+</li>
+
 <li>
 <h3>
 <a id="calc_fragment_lengthpl" class="anchor" href="#calc_fragment_lengthpl" aria-hidden="true"><span aria-hidden="true" class="octicon octicon-link"></span></a>calc_fragment_length.pl</h3>
