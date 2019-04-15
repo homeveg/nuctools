@@ -533,7 +533,11 @@ elsif ($alignStarts) { $maxind=$#output_starts_array;}
 elsif ($alignEnds) { $maxind=$#output_ends_array;}
 else { 	$maxind=$#output_mids_array; }
 
-for (my $ind=0; $ind<=$maxind; $ind++) {
+for (my $ind=0; $ind<=$delta; $ind++) {
+	if ($ind > $maxind) {
+		if ($useStrand) { print $OUT_FHs "0\t0\n"; }
+		else { print $OUT_FHs 0,"\n"; }
+	} 
 	if ($useStrand) { print $OUT_FHs join("\t", $output_plus_array[$ind], $output_minus_array[$ind]),"\n"; }
     elsif ($alignStarts) { print $OUT_FHs $output_starts_array[$ind],"\n"; }
 	elsif ($alignEnds) { print $OUT_FHs $output_ends_array[$ind],"\n"; }
