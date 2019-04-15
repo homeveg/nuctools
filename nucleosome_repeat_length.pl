@@ -396,25 +396,29 @@ if ($useStrand) {
 	@piles=check_piles($piles_filtering_threshold, floor($pile_delta/2), @sorted_mids);
 }
 
-my $max_pile=max(@piles);
-print STDERR $#piles+1," piles above $piles_filtering_threshold has been detected.\n",
-"Max pile size: $max_pile\n",
-"Average pile size: ",floor(average(\@piles))," \x{B1} ", floor( stdev(\@piles) ), "\n",
-"Median pile size: ",median(@piles),"\n";
-
-if( ($max_pile>=$piles_filtering_threshold) && ( floor( stdev(\@piles) ) > floor(average(\@piles)) ) ){
-	print STDERR "\n================================================================\n",
-	"        WARNING: low complexity regions has been detected!\n";
+if (!@piles) { print STDERR "no piles detected\n";}
+else {
+	my $max_pile=max(@piles);
+	print STDERR $#piles+1," piles above $piles_filtering_threshold has been detected.\n",
+	"Max pile size: $max_pile\n",
+	"Average pile size: ",floor(average(\@piles))," \x{B1} ", floor( stdev(\@piles) ), "\n",
+	"Median pile size: ",median(@piles),"\n";
 	
-	if($detectPiles) {
-		$apply_filter_flag=1;
-		$piles_filtering_threshold=$piles_filtering_threshold;
-		print STDERR "        automatically set piles filtering threshold to ",$piles_filtering_threshold,"\n";
+	if( ($max_pile>=$piles_filtering_threshold) && ( floor( stdev(\@piles) ) > floor(average(\@piles)) ) ){
+		print STDERR "\n================================================================\n",
+		"        WARNING: low complexity regions has been detected!\n";
+		
+		if($detectPiles) {
+			$apply_filter_flag=1;
+			$piles_filtering_threshold=$piles_filtering_threshold;
+			print STDERR "        automatically set piles filtering threshold to ",$piles_filtering_threshold,"\n";
+		}
+		else {
+			print STDERR "        consider setting up piles filtering threshold \nor use piles auto-detection (flag: --detectPiles )\n";
+		}
+		print STDERR "================================================================\n\n";
 	}
-	else {
-		print STDERR "        consider setting up piles filtering threshold \nor use piles auto-detection (flag: --detectPiles )\n";
-	}
-	print STDERR "================================================================\n\n";
+	
 }
 
 # remove nucleosomoes without repeats ($pile>1)
