@@ -2,10 +2,10 @@
 # download genes annotation table from EnsEMBLE BioMart.
 # using archivedor current version of a database
 
-# load required packages
-if (!require("devtools")) install.packages("https://cran.r-project.org/src/contrib/devtools_1.12.0.tar.gz",
+# install and load required packages if needed
+if (!require("devtools")) install.packages("https://cran.r-project.org/src/contrib/devtools_2.0.2.tar.gz",
                                            repos=NULL, method="libcurl")
-if (!require("pacman")) install.packages("https://cran.r-project.org/src/contrib/pacman_0.4.1.tar.gz",
+if (!require("pacman")) install.packages("https://cran.r-project.org/src/contrib/pacman_0.5.1.tar.gz",
                                          repos=NULL, method="libcurl")
 pacman::p_load( optparse, biomaRt )
 
