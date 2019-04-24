@@ -2,11 +2,11 @@
 
 =head1 NAME
 
-extend_SE_reads.pl - Extends single-end reads by the user-defined value of the average DNA fragment length 
+extend_fragments.pl - Extends paired-end fragments symmetrically in both direction to the user-defined fragment length 
 
 =head1 SYNOPSIS
 
-perl -w extend_SE_reads.pl -in <in.bed> -out <out.bed> -fL <fragment length> [-cC <column Nr.> -sC <column Nr.> -eC <column Nr.> -strC <column Nr.> ] [--help] 
+perl -w extend_fragments.pl -in <in.bed> -out <out.bed> -fL <fragment length> [-cC <column Nr.> -sC <column Nr.> -eC <column Nr.> -strC <column Nr.> ] [--help] 
 
  Required arguments:
     --input | -in      path to directory with aggregate profiles
@@ -31,7 +31,7 @@ perl -w extend_SE_reads.pl -in <in.bed> -out <out.bed> -fL <fragment length> [-c
 	
 	OR
 	
-    perl -w extend_SE_reads.pl -in in.bed.gz -out out.bed.gz -l 100 	
+    perl -w extend_fragments.pl -in in.bed.gz -out out.bed.gz -l 100 	
     
 =head1 DESCRIPTION
  
@@ -39,9 +39,9 @@ perl -w extend_SE_reads.pl -in <in.bed> -out <out.bed> -fL <fragment length> [-c
 
  NucTools is a software package for analysis of chromatin feature occupancy profiles from high-throughput sequencing data
 
-=head2 average_replicates.pl
+=head2 extend_fragments.pl
 
- extend_SE_reads.pl extends single-end reads by the user-defined value of the average DNA fragment length. Script works with compressed or uncompressed BED files and save output as compress *.BED.GZ
+ extend_fragments.pl Extends paired-end fragments symmetrically in both direction to the user-defined fragment length. Script works with compressed or uncompressed BED files and save output as compress *.BED.GZ
 
 =head1 AUTHORS
 
