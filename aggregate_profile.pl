@@ -161,6 +161,7 @@ use List::Util qw(first);
 use Getopt::Long;
 use Pod::Usage;
 use IO::Dir;
+use POSIX;
 
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
@@ -717,7 +718,11 @@ sub AGGREGATE {
 	my @average_occ_freq_distr;
 	my @output_array;
 	my @output_array2;
-	my @non_zero_counter = (0) x ($delta_1+$delta_2+1);
+	#my $orig_delta1=$delta_1;
+	#my $orig_delta2=$delta_2;
+	my $corr_delta_1=floor($delta_1/$window);
+	my $corr_delta_2=floor($delta_2/$window);
+	my @non_zero_counter = (0) x ($corr_delta_1+$corr_delta_2+1);
 	my $genes_counter=0;
 	#my @splice_array;
 	
@@ -864,9 +869,9 @@ sub AGGREGATE {
 				else { $old_central_point=$new_central_point; $ignore_overlap="yes";}
 			
 				$start_of_region_occ = $new_central_point-$delta_1;
-				$end_of_region_occ = $new_central_point+$delta_2+1;
+				$end_of_region_occ = $new_central_point+$delta_2+$window;
 				$start_of_region_splice=0;
-				$end_of_region_splice=$delta_1 + $delta_2 +1;
+				$end_of_region_splice=$delta_1 + $delta_2 +$window;
 		
 				push(@splice_array, @occ_array_plus[$start_of_region_occ..$end_of_region_occ]);
 	
@@ -876,7 +881,7 @@ sub AGGREGATE {
 						my $shift=min($position_start+$delta_2,$position_end);
 						
 						$start_of_region_occ = $position_start-$delta_1;
-						$end_of_region_occ = $shift+1;
+						$end_of_region_occ = $shift+$window;
 						
 						#shift splice array start if TSS-delta1<0
 						if ($start_of_region_occ<0) {
@@ -892,9 +897,9 @@ sub AGGREGATE {
 						
 						push(@splice_array, @occ_array_plus[$start_of_region_occ..$end_of_region_occ]);
 						
-						if ($end_of_region_splice < $delta_1+$delta_2+1) {
+						if ($end_of_region_splice < $delta_1+$delta_2+$window) {
 						#code
-						push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+						push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+$window);
 						}
 						
 						if ($invert_strand) {
@@ -911,7 +916,7 @@ sub AGGREGATE {
 						#$end_of_region_occ=$shift+1;
 
 						$start_of_region_occ = max($position_end-$delta_2,$position_start);
-						$end_of_region_occ=$position_end+$delta_1+1;
+						$end_of_region_occ=$position_end+$delta_1+$window;
 
 						#shift splice array start if TSS-delta1<0
 						if ($start_of_region_occ<0) {
@@ -928,18 +933,18 @@ sub AGGREGATE {
 						if (!$invert_strand) {
 							my @temp = @splice_array;
 							@splice_array = reverse(@temp);
-							if ($end_of_region_splice < $delta_1+$delta_2+1) {
+							if ($end_of_region_splice < $delta_1+$delta_2+$window) {
 								#code
-								push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+								push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+$window);
 							}
 						}
 						else {		    
-							if ($end_of_region_splice < $delta_1+$delta_2+1) {
+							if ($end_of_region_splice < $delta_1+$delta_2+$window) {
 								#code
 								my @temp = @splice_array;
 								@splice_array = reverse(@temp);
 								undef @temp;
-								push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+1);
+								push(@splice_array,0) for($end_of_region_splice+1..$delta_1+$delta_2+$window);
 								@temp = @splice_array;
 								@splice_array = reverse(@temp);
 								undef @temp;
@@ -953,14 +958,14 @@ sub AGGREGATE {
 					if ($annotation{$chrom}{$gene_id}{'strand'} eq "plus") {
 						
 						$start_of_region_occ = $position_start-$delta_1;
-						$end_of_region_occ = $position_start+$delta_2+1;
+						$end_of_region_occ = $position_start+$delta_2+$window;
 						
 						push(@splice_array, @occ_array_plus[$start_of_region_occ..$end_of_region_occ]);
 						
 					}
 					elsif ($annotation{$chrom}{$gene_id}{'strand'} eq "minus") {
 						$start_of_region_occ = $position_end-$delta_2;
-						$end_of_region_occ= $position_end+$delta_1+1;
+						$end_of_region_occ= $position_end+$delta_1+$window;
 						push(@splice_array, @occ_array_minus[$start_of_region_occ..$end_of_region_occ]);
 						
 						my @temp_array = @splice_array;
@@ -983,7 +988,7 @@ sub AGGREGATE {
 				my $total_reads_per_transcript;
 				$total_reads_per_transcript += $_ for @splice_array;
 				my $norm_factor=$total_reads_per_transcript/$transcript_length;
-				if ((!$total_reads_per_transcript) or ($total_reads_per_transcript == 0)) { @splice_array = (0) x ($delta_1+$delta_2+1); }
+				if ((!$total_reads_per_transcript) or ($total_reads_per_transcript == 0)) { @splice_array = (0) x ($delta_1+$delta_2+$window); }
 				else {
 				my @temp_array = map { $_ / $norm_factor } @splice_array;
 				undef @splice_array;
@@ -995,7 +1000,7 @@ sub AGGREGATE {
 			
 			if($library_size_normalization) {
 				my $norm_factor=$library_size/1000000;
-				if ((!$norm_factor) or ($norm_factor == 0)) { @splice_array = (0) x ($delta_1+$delta_2+1); }
+				if ((!$norm_factor) or ($norm_factor == 0)) { @splice_array = (0) x ($delta_1+$delta_2+$window); }
 				else {
 				my @temp_array = map { $_ / $norm_factor } @splice_array;
 				undef @splice_array;
@@ -1004,18 +1009,7 @@ sub AGGREGATE {
 				}
 			}
 		
-			
-			#if($apply_DivSum_normalization eq "yes") {
-			#	my $norm_factor += $_ for @splice_array;
-			#	if ($norm_factor == 0) { @splice_array = (0) x ($delta_1+$delta_2+1); }
-			#	else {
-			#		my @temp_array = map { $_ / $norm_factor } @splice_array;
-			#		undef @splice_array;
-			#		@splice_array=@temp_array;
-			#		undef @temp_array;
-			#		}
-			#	}
-			
+
 			my $temp_string;
 			if ($calc_score) {
 				my $RPM = sum(@splice_array)/(1000000*$library_size);
@@ -1140,8 +1134,7 @@ sub AGGREGATE {
 	# generate coordinates
 	my @coords;
 	for (my $i=-$delta_1;$i<=$delta_2;$i+=$window) { push (@coords, $i); }
-	
-	for (my $k=0; $k<=($delta_1+$delta_1+1); $k++) {
+	for (my $k=0; $k<=$#coords; $k++) {
 		print AveragedFile $coords[$k],"\t",$results[$k],"\n";
 	}
 	
