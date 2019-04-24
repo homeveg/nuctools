@@ -60,7 +60,7 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
     --score                         calculate RPM value (requires --library_size)
     --save_aligned | -sA            save aligned matrix
     --Cut_tail | -noTail            do not use reads downstream from regions end within the downstream_delta
-    --window | -w                   running window parameter equal to one provided in bed2occupancy_average.pl parameter. (Default: 100)
+    --window | -w                   running window parameter - should be equal to one, provided in bed2occupancy_average.pl parameter. (Default: 100; smallest possible: 1)
 	
   normalization options
     --AgregateProfile | -aggr       calculates aggregate profile representing the average occupancy
@@ -359,6 +359,8 @@ if ($apply_methylation_filter) {
 if ($Chromosome) { print STDERR "process chromosome $Chromosome only\n"; }
 print STDERR "delta_minus: ",$delta_1, "\n";
 print STDERR "delta_plus: ",$delta_2, "\n";
+if ($window < 1) { print STDERR "running window should be at least 1 (single nucleotide resolution)\nExiting...\n"; exit;}
+if ($window =~ /\D/) { print STDERR "running window should be an integer value bigger than 0\nExiting...\n"; exit;}
 print STDERR "running window size: $window \n";
 print STDERR "upper occupancy threshold: ",$upper_occup_threshold, "\n";
 print STDERR "lower occupancy threshold: ",$lower_occup_threshold, "\n";
