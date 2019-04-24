@@ -70,7 +70,7 @@ perl -w aggregate_profile.pl --input=<in.occ.gz> --regions=<annotations.txt> [--
 	
   additional parameters
     --ProcessDir | -dir             generate aggregate profiles for each OCC file in the directory specified by --input flag
-	--force                         overwrite output file with the same file name 
+    --force                         overwrite output file with the same file name 
     --gzip | -z                     compress the output
     --verbose                       display additional run info
     --help| -h                      display detailed help
