@@ -1120,10 +1120,10 @@ sub AGGREGATE {
 		close ($OUT_FHs);
 		
 		$out_file =~ s/\.txt/\.tab/;
-		open (OCCUP_File, ">$out_file") or die "can't open file $out_file for writting: $!";
-		print OCCUP_File join("\t", "Gene", "Chromosomes", "strand", "start_of_region_occ", "end_of_region_occ", "region length" , "start", "stop", "transcript_length", "array length"),"\n";
-		print OCCUP_File join("\n", @output_array2),"\n";
-		close (OCCUP_File);
+		open (TAB_File, ">$out_file") or die "can't open file $out_file for writting: $!";
+		print TAB_File join("\t", "Gene", "Chromosomes", "strand", "start_of_region_occ", "end_of_region_occ", "region length" , "start", "stop", "transcript_length", "array length"),"\n";
+		print TAB_File join("\n", @output_array2),"\n";
+		close (TAB_File);
 	
 	}
 	
