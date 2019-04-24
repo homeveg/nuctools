@@ -10,8 +10,11 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
 
  Required arguments:
     --inputDir  | -in    path to directory with aggregate profiles
-    --output | -out      full path to output table
+    --outputS | -o1      output stable regions file
+    --outputF | -o2      output fuzzy regions file
     --chromosome | -chr  chromosome ID
+    --windowSize | -w    running window size. Use same value as for average occupancy calculation (default: 1)
+	--MeanAbove | -ma    set a threshold on mean occupancy: discard fuzzy regions with occupancy below a threshold (default: 0 - save all) 
 
  Options:
  
@@ -21,9 +24,10 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
     
  additional parameters
     --printData  | -d       print all input occupancy columns to the output file
-    --StableThreshold | -t  set threshold on relative error (St.Dev/Mean) to define stable nucleosomes (default: 0.5)
-	--fileExtention | -p    input files extention (default: bed)
-    --fuzzy | -f            save fuzzy regions (below threshold)
+    --StableThreshold | -t  set threshold on relative error (St.Dev/Mean) to define stable nucleosomes: relative error below a threshold (default: 0.5)
+    --FuzzyThreshold | -ft   set threshold on relative error (St.Dev/Mean) to define fuzzy nucleosomes: relative error above a threshold (default: as stable)
+    --fileExtention | -p    input files extention (default: bed)
+    --fuzzy | -f            save fuzzy regions (below threshold). If --FuzzyThreshold nor set explicitly, use a --StableThreshold value instead
 	
 	--gzip | -z             compress the output
 	--help | -h             Help
@@ -98,10 +102,15 @@ my $occupCol=1;
 my %occupancy;
 my $chr;
 my $StableThreshold=0.5;
+my $FuzzyThreshold;
+my $windowSize=1;
+my $MeanAbove=0;
+
 my %NormFactors;
-my $output;
-my $addData="no";
-my $filename_pattern="bed";
+my $output1;
+my $output2;
+my $addData;
+my $filename_pattern="occ";
 
 my $useGZ;
 my $needsHelp;
@@ -109,15 +118,19 @@ my $fuzzy;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'inputDir|in=s' => \$wd,
-	'output|out=s'   => \$output,
+	'outputS|o1=s'   => \$output1,
+	'outputF|o2=s'   => \$output2,
 	'chromosome|chr=s' => \$chr,
 	'fileExtention|p=s' => \$filename_pattern,
 
 	'coordsCol|cC=s' => \$coordsCol,
 	'occupCol|oC=s' => \$occupCol,
-	
+	'windowSize|w=s' => \$windowSize,
+	'MeanAbove|ma=s' => \$MeanAbove,
+
 	'printData|d' => \$addData,
 	'StableThreshold|t=s' => \$StableThreshold,
+	'FuzzyThreshold|ft=s' => \$FuzzyThreshold,
 	'gzip|z' => \$useGZ,
 	'fuzzy|f' => \$fuzzy,
 
@@ -133,10 +146,10 @@ if ( ((!$ModuleGzipIsLoaded) or (!$ModuleGunzipIsLoaded)) and ($useGZ) ) {
 	exit;
 }
 elsif ( (($ModuleGzipIsLoaded) and ($ModuleGunzipIsLoaded)) and ($useGZ) ) {
-	print STDERR "ZGIP support enabled\n";
+	print STDERR "GZIP support enabled\n";
 }
 else {
-	print STDERR "ZGIP support disabled\n";
+	print STDERR "GZIP support disabled\n";
 	if ( ($filename_pattern =~ (/.*\.gz$/))  and (!$useGZ) ) {
 		print STDERR "======================================\n";
 		print STDERR "WARNING! Input file probably compressed!\n";
@@ -146,6 +159,37 @@ else {
 	}
 
 }
+
+print STDERR "======================================\n";
+print STDERR "input directory: ",$wd, "\n";
+print STDERR "input files extensions: ",$filename_pattern, "\n";
+print STDERR "output stable regions file: ",$output1, "\n";
+print STDERR "output fuzzy regions file: ",$output2, "\n";
+print STDERR "======================================\n";
+print STDERR "chromosome name: ",$chr, "\n";
+print STDERR "Occupancy column ID: ",$occupCol, "\n";
+print STDERR "Coordinates column ID: ",$coordsCol, "\n";
+print STDERR "bin size: ",$windowSize, "\n";
+print STDERR "stable threshold: rel.error. below ",$StableThreshold, "\n";
+if($fuzzy) {
+	print STDERR "save fuzzy data (below threshold): enabled\n";
+	if(!$FuzzyThreshold) { $FuzzyThreshold=$StableThreshold;}
+	print STDERR "fuzzy threshold: rel.error. above ",$FuzzyThreshold, "\n";
+} else {
+print STDERR "save fuzzy data (below threshold): disabled\n";
+}
+if($addData) {
+print STDERR "save individual occupancy values: enabled\n";
+} else {
+print STDERR "save individual occupancy values: disabled\n";
+}
+# check if threshold on mean set
+if ($MeanAbove == 0) {
+	print STDERR "discard regions with occupancy below threshold: disabled\n";
+} else {
+	print STDERR "discard regions with occupancy below $MeanAbove: enabled\n";
+}
+print STDERR "======================================\n";
 
 my $tm = localtime;
 print STDERR "-----------------------\n",join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",join(":",$tm -> [2],$tm -> [1],$tm -> [0]),"\n-----------------------\n";
@@ -172,18 +216,31 @@ for (my $i=0; $i<=$#files; $i++) {
 
 
 # open pipe to Gzip or open text file for writing
-  my ($gz_out_file,$out_file,$OUT_FHs);
-  $out_file = $output;
+my ($out_file,$gz_out_file, $OUT1_FHs, $OUT2_FHs);
+$out_file = $output1;
+if ($useGZ) {
+	$out_file =~ s/(.*)\.gz$/$1/;
+	$gz_out_file = $out_file.".gz";
+	$OUT1_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+}
+else {
+	open $OUT1_FHs, '>', $output1 or die "Can't open $output1 for writing; $!\n";
+}
+if ($fuzzy) {
+	$out_file = $output2;
 	if ($useGZ) {
 		$out_file =~ s/(.*)\.gz$/$1/;
 		$gz_out_file = $out_file.".gz";
-		$OUT_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
+		$OUT2_FHs = new IO::Compress::Gzip ($gz_out_file) or open ">$out_file" or die "Can't open $out_file for writing: $!\n";
 	}
 	else {
-		open $OUT_FHs, '>', $output or die "Can't open $output for writing; $!\n";
-	}
+		open $OUT2_FHs, '>', $output2 or die "Can't open $output2 for writing; $!\n";
+	}	
+}
 
-print STDERR "calcualting StDev, Variance and average.\nResults will be saved to $output\n";
+print STDERR "calcualting StDev, Variance and average.\nResults will be saved to $output1";
+if ($fuzzy) { print STDERR " and to $output2\n"; }
+else {  print STDERR "\n"; }
 my $size = keys %occupancy;
 #print OUT join("\t","chr", "start", "stop", "Mean","stdev","Rel.Error");
 my $header=0;
@@ -192,8 +249,11 @@ print STDERR "processing $total_counts entries...\n";
 my $work_progress_step = int($total_counts/10);
 my $current_progress = $work_progress_step;
 my $j=0;
+my $discarded_counter=0;
 for my $position ( sort {$a<=>$b} keys %occupancy) {
-    if($current_progress == $j) {print STDERR "$current_progress from $total_counts...\n";$current_progress+=$work_progress_step;}
+    if($current_progress == $j) {
+		print STDERR "$current_progress from $total_counts..."," "x40,"\r";
+		$current_progress+=$work_progress_step;}
     $j++;
     my @temp; my $coord;
     for my $name ( sort keys %{ $occupancy{$position} }) {
@@ -216,20 +276,29 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
     my $rel_err;
     if ($Mean!=0) {  $rel_err=$stdev/$Mean; }
     else {$rel_err=0;}
-	if ( ($fuzzy) && ($rel_err > $StableThreshold) && ($rel_err!=0)) {
-		if ($addData eq "yes") { print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,@temp),"\n";   }
-    	else {print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,),"\n";   }
+	if ( ($fuzzy) && ($rel_err > $StableThreshold) && ($rel_err!=0) && ($rel_err <= $FuzzyThreshold)) {
+		if ( ($MeanAbove>0) && ($Mean<=$MeanAbove) ) { $discarded_counter++; next;} 
+		if ($addData) { print $OUT2_FHs join("\t",$chr, $position-$windowSize, $position,$Mean,$stdev,$rel_err,@temp),"\n";   }
+    	else {print $OUT2_FHs join("\t",$chr, $position-$windowSize, $position,$Mean,$stdev,$rel_err,),"\n";   }
 	}
-    elsif (  (!$fuzzy) &&  ($rel_err < $StableThreshold) && ($rel_err!=0)) { 
-    	if ($addData eq "yes") { print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,@temp),"\n";   }
-    	else {print $OUT_FHs join("\t",$chr, $position-100, $position,$Mean,$stdev,$rel_err,),"\n";   }
+    elsif (  ($rel_err < $StableThreshold) && ($rel_err!=0) ) { 
+    	if ($addData) { print $OUT1_FHs join("\t",$chr, $position-$windowSize, $position,$Mean,$stdev,$rel_err,@temp),"\n";   }
+    	else {print $OUT1_FHs join("\t",$chr, $position-$windowSize, $position,$Mean,$stdev,$rel_err,),"\n";   }
     }
     undef @temp;
 }
-print STDERR "done!\n";
+print STDERR "done!\n\n";
+if ($MeanAbove>0) {
+	print STDERR "-----------------------\n";
+	print STDERR "$discarded_counter fuzzy regions discarded: mean occupancy below threshold $MeanAbove\n";
+}
 $tm = localtime;
-print STDERR "-----------------------\n",join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",join(":",$tm -> [2],$tm -> [1],$tm -> [0]),"\n-----------------------\n";
-close($OUT_FHs) or die $!;
+print STDERR "-----------------------\n",
+join("-",$tm -> [3],1+ $tm -> [4],1900 + $tm -> [5])," ",join(":",$tm -> [2],$tm -> [1],$tm -> [0]),
+"\n-----------------------\n";
+close($OUT1_FHs) or die $!;
+if ($fuzzy) { close($OUT2_FHs) or die $!; }
+
 exit();
 
 
@@ -337,7 +406,8 @@ sub ReadFile {
         $processed_memory_size += $n;
         $offset += $n;
         if(int($processed_memory_size/1048576)>= $filesize/10) {
-            print STDERR "."; $processed_memory_size=0;
+            $processed_memory_size=0;
+			print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds"," "x40,"\r";
             }
         undef @lines;
         $buffer = "";
@@ -374,11 +444,11 @@ sub check_opts {
 			-message => "Cannot find input directory $wd: $!\n"
 		);
 	}
-	if ( !$output ) {
+	if ( !$output1 ) {
 		pod2usage(
 			-exitval => 2,
 			-verbose => 1,
-			-message => "please specify output file name\n"
+			-message => "please specify stable regions output file name\n"
 		);
 	}
 	if ( !$chr ) {

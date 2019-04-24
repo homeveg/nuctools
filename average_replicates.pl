@@ -40,7 +40,7 @@ perl -w average_replicates.pl --dir=<path to working dir> --output=<path to resu
 
 =head2 average_replicates.pl
 
- extract_chr_bed.pl calculates the average occupancy profile and standard deviation based on several replicate occupancy profiles from the working directory and save resulting table, including input occupancy data for individual files. Input *.occ files can be flat or compressed. Resulting extended occupancy file will be saved compressed 
+ average_replicates.pl calculates the average occupancy profile and standard deviation based on several replicate occupancy profiles from the working directory and save resulting table, including input occupancy data for individual files. Input *.occ files can be flat or compressed. Resulting extended occupancy file will be saved compressed 
 
 =head1 AUTHORS
 

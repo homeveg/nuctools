@@ -336,7 +336,6 @@ print STDERR "sorting...";
 
 my $data = \%hash;
 my @sorted_array;
-
 my @sorted_hash = sort {
 	$data->{$a}{mid} <=> $data->{$b}{mid}
 	or

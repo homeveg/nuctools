@@ -9,8 +9,8 @@ compare_two_conditions.pl - identify regions with highest variance between contr
 perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.occ> --output1=<more_than1.txt> --output2=<less_than1.txt> --chromosome="chr1" [--windowSize=100 --threshold1=0.8 --threshold2=0.5 --Col_signal=1 --Col_coord=0 --verbose --help]
 
  Required arguments:
-    --input1 | -i1        input OCC file or OCC.GZ extended file (if option -dir is used)
-    --input2 | -i2        input OCC file or OCC.GZ extended file (if option -dir is used)
+    --input1 | -i1        input average occupancy file or OCC.GZ extended file, condition I (the output file of average_replicates.pl script)
+    --input2 | -i2        input average occupancy file or OCC.GZ extended file, condition II (the output file of average_replicates.pl script)
     --output1 | -o1       output high/low varience regions file (OCC.GZ)
     --output2 | -o2       output high/low varience regions file (OCC.GZ)
 	
@@ -21,12 +21,12 @@ perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.
 	
    additional parameters
     --chromosome | -c           chromosome ID
-    --windowSize | -w           running window size. Use same value as for average occupancy calculation (default: 100)
-    --threshold1 | -t1          upper threshold (default: 0.8)
-    --threshold2 | -t2          lower threshold (default: 0.5)
+    --windowSize | -w           running window size. Use same value as for average occupancy calculation (default: 1)
+    --threshold1 | -t1          upper threshold (default: 0.95)
+    --threshold2 | -t2          lower threshold (default: -0.95)
 	--allowNull | -aN           allow occupancy 0 in either conditions
 	
-    --verbose | -v              consider strand when calculating occupancy
+    --verbose | -v              verbose output 
     --gzip | -z                 compress the output
     --help | -h                 Help
     
@@ -57,7 +57,7 @@ perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.
 
 =head2 compare_two_conditions.pl
 
- compare_two_conditions.pl takes as input occupancy files for two conditions (which have been previously generated from several replicates using average_replicates.pl), and produces two files with regions of size windowSize, where the difference between the signal in condition 2 and condition 1 is correspondingly larger or smaller than threshold1 and threshold 2.
+ compare_two_conditions.pl takes as an input average occupancy files for two conditions (which have been previously generated from several replicates using average_replicates.pl), and produces two files with regions of size windowSize, where the difference between the signal in condition 2 and condition 1 is correspondingly larger or smaller than threshold 1 and threshold 2. The normalized difference value between average ocuupanies could be in the range from -1 to +1. Values below lower threshold indicating decrease of nucleosom occupancy in corresponding region in sample 1 comparing to sample 2. Values above the threshold indicating the increase of nucleosome occupancy.  
 
 =head1 AUTHORS
 
@@ -112,11 +112,11 @@ BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gz
 my ($input1,$input2);
 my $Col_signal=1;
 my $Col_coord=0;
-my $threshold1=0.99;
-my $threshold2=-0.99;
+my $threshold1=0.95;
+my $threshold2=-0.95;
 my ($output1,$output2);
 my $chromosome;
-my $windowSize=100;
+my $windowSize=1;
 my $verbose;
 my $needsHelp;
 my $useGZ;
@@ -137,7 +137,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'Col_signal|sC=s' => \$Col_signal,
 	'Col_coord|cC=s' => \$Col_coord,
-	'verbose|v=s'   => \$verbose,
+	'verbose|v'   => \$verbose,
 	'gzip|z' => \$useGZ,
 	
 	'help|h'      => \$needsHelp
@@ -223,7 +223,7 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
 	my $occup1 = $occupancy{$position}{1};
 	my $occup2 = $occupancy{$position}{2};
 	
-	my $norm_difference=abs 2*($occup1-$occup2)/($occup1+$occup2);
+	my $norm_difference= ($occup1-$occup2)/($occup1+$occup2);
 
     my $start_region = $position-$windowSize;
     my $end_region = $position;
@@ -328,7 +328,8 @@ sub ReadFile {
         $processed_memory_size += $n;
         $offset += $n;
         if(int($processed_memory_size/1048576)>= $filesize/10) {
-            print STDERR "."; $processed_memory_size=0;
+            $processed_memory_size=0;
+			print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.                         \r";
             }
         undef @lines;
         $buffer = "";

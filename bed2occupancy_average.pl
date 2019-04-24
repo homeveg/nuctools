@@ -2,11 +2,11 @@
 
 =head1 NAME
 
-bed2occupancy_average.pl - Calculates genome-wide occupancy based on the bed file with sequencing reads 
+bed2occupancy_average.pl - Calculates library size-normalized genome-wide occupancy based on the bed file with sequencing reads 
 
 =head1 SYNOPSIS
 
-perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--outdir=<DIR_WITH_OCC> --chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --window=<running window size> --consider_strand --ConvertAllInDir --help]
+perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--outdir=<DIR_WITH_OCC> --chromosome_col=<column Nr.> --start_col=<column Nr.> --end_col=<column Nr.> --strand_col=<column Nr.> --window=<running window size> --consider_strand --ConvertAllInDir --nonorm --help]
 
  Required arguments:
     --input | -in        input BED file or BED.GZ file or directory containing bed or bed.gz files (if option -dir is used)
@@ -24,6 +24,7 @@ perl -w bed2occupancy_average.pl --input=<in.bed.gz> --output=<out.occ.gz> [--ou
     --ConvertAllInDir | -dir    set flag to convert all BED files in the directory to OCC
     --outdir | -odir            path to output folder (save to input dir if not specified)
     --consider_strand | -use    consider strand when calculating occupancy
+	--nonorm | -nn              disable library size normalization [default: normalization enabled]
 
     --gzip | -z                 compress the output
     --help | -h                 Help
@@ -131,7 +132,7 @@ my $running_window=1;
 my $region_start=0;
 my $region_end;
 my $useGZ;
-
+my $norm_flag;
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input|in=s' => \$infile,
@@ -140,6 +141,7 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'consider_strand|use' => \$flag,
 	'ConvertAllInDir|dir' => \$ConvertAllInDir,
+	'nonorm|nn' => \$norm_flag, 
 	
 	'start_col|s=s' => \$start_col,
 	'end_col|e=s'   => \$end_col,
@@ -197,6 +199,9 @@ print STDERR "read start column: ",$start_col, "\n";
 print STDERR "read end column: ",$end_col, "\n";
 print STDERR "strand column: ",$strand_col, "\n";
 print STDERR "======================================\n";
+if ($norm_flag) { print STDERR "Library size normalization disabled \n"; }
+else { print STDERR "Library size normalization enabled \n"; }
+print STDERR "======================================\n";
 
 
 if (! $ConvertAllInDir) {
@@ -204,7 +209,7 @@ if (! $ConvertAllInDir) {
         $outfile = $infile;
         $outfile =~ s/(.*)\.bed(.gz)?$/$1\.w$running_window\.occ/;
 	}
-	BED_2_OCC($infile, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end); } 
+	BED_2_OCC($infile, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end, $norm_flag); } 
 elsif ($ConvertAllInDir) {
     # process each *.bed file in the folder
     my (%dir, @dir_list, @text_list);
@@ -216,12 +221,12 @@ elsif ($ConvertAllInDir) {
         if ($file =~ m/.*\.bed$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed$/$1\.w$running_window\.occ/;
-            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end);           
+            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end, $norm_flag);           
         }
         if ($file =~ m/.*\.bed.gz$/) {
             $outfile = $file;
             $outfile =~ s/(.*)\.bed.gz$/$1\.w$running_window\.occ/;
-            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end);           
+            BED_2_OCC($start_dir."/".$file, $outdir."/".$outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end, $norm_flag);           
         }
     }
 }
@@ -231,7 +236,7 @@ exit;
 #--------------------------------------------------------------------------
 
 sub BED_2_OCC {
-    my ($infile_name, $outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end) = @_;
+    my ($infile_name, $outfile, $chromosome_col, $start_col, $end_col, $strand_col, $flag, $region_start, $region_end, $norm_flag) = @_;
     
 	my $infile;
 	if ( $infile_name =~ (/.*\.gz$/) ) {
@@ -324,6 +329,7 @@ sub BED_2_OCC {
     # modify running average by shifting
     if (!$region_end) {	$region_end=$#occup; }
 	my $LibSize_norm_factor = ($line_counter)/($region_end-$region_start);
+	if ($norm_flag) { $LibSize_norm_factor=1; }
 	my $counter=0;
 
 	if ($running_window > 1 ) {

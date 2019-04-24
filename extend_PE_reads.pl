@@ -202,6 +202,10 @@ my $string_counter=0;
 my $BUFFER_SIZE = 1024;
 my $old_coordinate=1;
 my $last_line;
+my $accepted=0;
+my $regected=0;
+my $total_counts=0;
+
 while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     if (($n >= $BUFFER_SIZE) or (($n == $filesize_in_bytes))) {
         $buffer .= <$inFH>;
@@ -210,41 +214,48 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
     my $end_index=$#lines;
     for (my $i=0; $i<=$end_index; $i++) {
       	my ($line1,$line2);
-	if($last_line) {
-	  unshift(@lines, $last_line);
-	  $end_index=$#lines;
-	  undef $last_line;
-	}
-	if(($i==$end_index) && ($end_index % 2 == 0) && ($lines[$#lines] =~ /^chr.*/ ))  { $last_line= $lines[$#lines]; last; }
-	$line1=$lines[$i]; chomp($line1);
-	$line2=$lines[$i+1]; chomp($line2);
-	
-	my @newline1=split(/\t/, $line1);
-	my @newline2=split(/\t/, $line2);
-	
-	my $chr_name_1=$newline1[0];
-	my $chr_name_2=$newline2[0];
-    
-    my $min = min ($newline1[1],$newline2[1]);
-    my $max = max ($newline1[2],$newline2[2]);
-    my $nuc_length = $max - $min;
-
-    my $read_1=$newline1[3];
-	my $read_2=$newline2[3];
-    
-   	if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length < $NucLength))  {
-		if ( defined $extendFragment & ($nuc_length<$fragment_length) ){
-			my $delta=floor( ($fragment_length-$nuc_length)/2 );
-			$min-=$delta;$max+=$delta;$nuc_length=$max - $min;
+		if($last_line) {
+		  unshift(@lines, $last_line);
+		  $end_index=$#lines;
+		  undef $last_line;
 		}
-		if ($keepName) { print $OUT_FHs join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n"; }
-		else { print $OUT_FHs join("\t", $chr_name_1, $min, $max, $nuc_length), "\n"; }
-        if ($verbose) {
-            print STDOUT join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n";
-        }
-	}
-
-	$i++;
+		if(($i==$end_index) && ($end_index % 2 == 0) && ($lines[$#lines] =~ /^chr.*/ ))  { $last_line= $lines[$#lines]; last; }
+		$line1=$lines[$i]; chomp($line1);
+		$line2=$lines[$i+1]; chomp($line2);
+		
+		my @newline1=split(/\t/, $line1);
+		my @newline2=split(/\t/, $line2);
+		
+		my $chr_name_1=$newline1[0];
+		my $chr_name_2=$newline2[0];
+		
+		my $min = min ($newline1[1],$newline2[1]);
+		my $max = max ($newline1[2],$newline2[2]);
+		my $nuc_length = $max - $min;
+		
+		my $read_1=$newline1[3];
+		my $read_2=$newline2[3];
+		
+		if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length < $NucLength))  {
+			if ( defined $extendFragment & ($nuc_length<$fragment_length) ){
+				my $delta=floor( ($fragment_length-$nuc_length)/2 );
+				$min-=$delta;$max+=$delta;$nuc_length=$max - $min;
+			}
+			if ($keepName) { print $OUT_FHs join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n"; }
+			else { print $OUT_FHs join("\t", $chr_name_1, $min, $max, $nuc_length), "\n"; }
+			if ($verbose) {
+				print STDOUT join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n";
+			}
+			$accepted+=2;
+		
+		} else {
+			if ($verbose) {
+				print STDOUT join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n";
+			}
+			$regected++;
+			next;
+		}
+		$i++;
     }
     if($#lines % 2)  {
       undef $last_line;
@@ -257,9 +268,11 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
         }
     undef @lines;
     $buffer = "";
+	$total_counts++;
 }
 close($inFH);
 close($OUT_FHs);
+print STDERR "from $total_counts reads $accepted reads where saved. $regected reads discarded\n";
 print STDERR "job finished! Bye!\n";
 exit;
 
