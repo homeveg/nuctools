@@ -196,6 +196,8 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
         elsif ($strand =~ m/\-/) {
           $start = $end - $fragment_length;
         }
+		$start = $start <= 0 ? 0 : $start;
+		
         print $OUT_FHs join("\t", $chr, $start, $end, $strand),"\n";
     }
     $processed_memory_size += $n;

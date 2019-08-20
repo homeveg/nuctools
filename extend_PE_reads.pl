@@ -230,6 +230,7 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 		my $chr_name_2=$newline2[0];
 		
 		my $min = min ($newline1[1],$newline2[1]);
+		$min = $min <= 0 ? 0 : $min;
 		my $max = max ($newline1[2],$newline2[2]);
 		my $nuc_length = $max - $min;
 		
@@ -239,7 +240,10 @@ while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
 		if (($read_1 eq $read_2) & ($chr_name_1 eq $chr_name_2) & ($nuc_length >0) & ($nuc_length < $NucLength))  {
 			if ( defined $extendFragment & ($nuc_length<$fragment_length) ){
 				my $delta=floor( ($fragment_length-$nuc_length)/2 );
-				$min-=$delta;$max+=$delta;$nuc_length=$max - $min;
+				$min-=$delta;
+				$min = $min <= 0 ? 0 : $min;
+				$max+=$delta;
+				$nuc_length=$max - $min;
 			}
 			if ($keepName) { print $OUT_FHs join("\t", $read_1, $chr_name_1, $min, $max, $nuc_length), "\n"; }
 			else { print $OUT_FHs join("\t", $chr_name_1, $min, $max, $nuc_length), "\n"; }

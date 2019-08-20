@@ -87,6 +87,7 @@ use strict 'vars';
 use Getopt::Long;
 use Pod::Usage;
 
+
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
 BEGIN { $ModuleGunzipIsLoaded = eval "require IO::Uncompress::Gunzip; 1"; }
@@ -226,7 +227,7 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
     if ($header == 0) { print $OUT_FHs "\n"; }
     $header=1;
     my $Mean=calcMean(@temp);
-		my $sum=sum(@temp);
+	my $sum=sum(@temp);
     my ($stdev,$variance)=calcStdDev(@temp);
     my $rel_err;
     if ($Mean!=0) {  $rel_err=$stdev/$Mean; }

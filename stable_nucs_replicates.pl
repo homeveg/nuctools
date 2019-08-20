@@ -9,12 +9,12 @@ stable_nucs_replicates.pl - Finds stable nucleosomes using all replicates for th
 perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed> --chromosome=chr1 [-coordsCol=0 -occupCol=2 -StableThreshold=0.5 --printData ] [--help] 
 
  Required arguments:
-    --inputDir  | -in    path to directory with aggregate profiles
+    --inputDir  | -in    path to directory with occupancy files
     --outputS | -o1      output stable regions file
     --outputF | -o2      output fuzzy regions file
     --chromosome | -chr  chromosome ID
     --windowSize | -w    running window size. Use same value as for average occupancy calculation (default: 1)
-	--MeanAbove | -ma    set a threshold on mean occupancy: discard fuzzy regions with occupancy below a threshold (default: 0 - save all) 
+    --MeanAbove | -ma    set a threshold on mean occupancy: discard fuzzy regions with occupancy below a threshold (default: 0 - save all) 
 
  Options:
  
@@ -26,11 +26,11 @@ perl -w stable_nucs_replicates.pl --input=<path to input DIR> --output=<out.bed>
     --printData  | -d       print all input occupancy columns to the output file
     --StableThreshold | -t  set threshold on relative error (St.Dev/Mean) to define stable nucleosomes: relative error below a threshold (default: 0.5)
     --FuzzyThreshold | -ft   set threshold on relative error (St.Dev/Mean) to define fuzzy nucleosomes: relative error above a threshold (default: as stable)
-    --fileExtention | -p    input files extention (default: bed)
+    --fileExtention | -p    input files extension (default: occ)
     --fuzzy | -f            save fuzzy regions (below threshold). If --FuzzyThreshold nor set explicitly, use a --StableThreshold value instead
 	
-	--gzip | -z             compress the output
-	--help | -h             Help
+    --gzip | -z             compress the output
+    --help | -h             Help
 	
  Example usage:
  
