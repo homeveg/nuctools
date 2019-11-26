@@ -6,7 +6,7 @@ compare_two_conditions.pl - identify regions with highest variance between contr
 
 =head1 SYNOPSIS
 
-perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.occ> --output1=<more_than1.txt> --output2=<less_than1.txt> --chromosome="chr1" [--windowSize=100 --threshold1=0.8 --threshold2=0.5 --Col_signal=1 --Col_coord=0 --verbose --help]
+perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.occ> --output1=<more_than1.txt> --output2=<less_than1.txt> --chromosome="chr1" [--windowSize=100 --threshold1=0.8 --threshold2=0.5 --allowNull --Col_signal=1 --Col_coord=0 --Col_StDev=2 --Col_RelErr=3 --withError --gzip --verbose --help]
 
  Required arguments:
     --input1 | -i1        input average occupancy file or OCC.GZ extended file, condition I (the output file of average_replicates.pl script)
@@ -16,15 +16,19 @@ perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.
 	
  Options:
     define column numbers in the input occupancy files (Nr. of the very first column is 0):
-    --Col_signal | -sC          occupancy column Nr. (default: 1)
     --Col_coord | -cC           coordinate column Nr. (default: 0)
+    --Col_signal | -sC          occupancy column Nr. (default: 1)
+    --Col_StDev | -cS           Standard Deviation column Nr. (default: 2)
+    --Col_RelErr | -cR          Relative Error column Nr. (default: 3)
 	
    additional parameters
-    --chromosome | -c           chromosome ID
+    --chromosome | -c           chromosome ID (mandatory parameter)
     --windowSize | -w           running window size. Use same value as for average occupancy calculation (default: 1)
     --threshold1 | -t1          upper threshold (default: 0.95)
     --threshold2 | -t2          lower threshold (default: -0.95)
 	--allowNull | -aN           allow occupancy 0 in either conditions
+	--withError | -wE           print StDev and RelError to the output
+
 	
     --verbose | -v              verbose output 
     --gzip | -z                 compress the output
@@ -43,11 +47,16 @@ perl -w compare_two_conditions.pl --input1=<control.occ> --input2=<experimental.
 	chromosome | region start | region end | read ID | score | strand
 	=============================================================
 	
-	output file contains following columns:
+	output file contains following columns (default):
 	
-	chromosome | region start | region end | normalized differnece | ocuupancy cond. 1 | ocupancy cond. 2
+	chromosome | region start | region end | normalized differnece | occupancy cond. 1 | occupancy cond. 2
 	======================================================================================================
 	
+	output file contains following columns (with the --withError flag active):
+	
+	chromosome | region start | region end | normalized differnece | occupancy cond. 1 | standard deviation cond. 1 | rel.error cond. 1 | occupancy cond. 2 | standard deviation cond. 2 | rel.error cond. 2 
+	======================================================================================================
+
 	
 =head1 DESCRIPTION
 
@@ -103,6 +112,7 @@ use Time::localtime;
 use Time::Local;
 use File::Basename;
 use List::Util qw(sum);
+use POSIX;
 
 # optional gzip support if modules are installed
 my ($ModuleGzipIsLoaded, $ModuleGunzipIsLoaded);
@@ -112,6 +122,8 @@ BEGIN { $ModuleGzipIsLoaded = eval "require IO::Compress::Gzip; IO::Compress::Gz
 my ($input1,$input2);
 my $Col_signal=1;
 my $Col_coord=0;
+my $Col_StDev=2;
+my $Col_RelErr=3;
 my $threshold1=0.95;
 my $threshold2=-0.95;
 my ($output1,$output2);
@@ -121,6 +133,8 @@ my $verbose;
 my $needsHelp;
 my $useGZ;
 my $allowNull;
+my $withError;
+
 
 my $options_okay = &Getopt::Long::GetOptions(
 	'input1|i1=s' => \$input1,
@@ -137,6 +151,9 @@ my $options_okay = &Getopt::Long::GetOptions(
 	
 	'Col_signal|sC=s' => \$Col_signal,
 	'Col_coord|cC=s' => \$Col_coord,
+	'Col_StDev|cS=s' => \$Col_StDev,
+	'Col_RelErr|cR=s' => \$Col_RelErr,
+	'withError|wE'    => \$withError,
 	'verbose|v'   => \$verbose,
 	'gzip|z' => \$useGZ,
 	
@@ -178,7 +195,12 @@ if($allowNull) {
 print STDERR "Allow zero in one of the conditions\n";
 }
 print STDERR "======================================\n";
+if($chromosome) {
 print STDERR "chromosome name: ",$chromosome, "\n";
+} else {
+	print STDERR "please specify chromosome ID. Exiting...\n";
+	exit 1;
+}
 print STDERR "bin size: ",$windowSize, "\n";
 print STDERR "======================================\n";
 print STDERR "print all data to STDOUT: ",$verbose, "\n";
@@ -189,8 +211,8 @@ print STDERR "-----------------------\n",join("-",$tm -> [3],1+ $tm -> [4],1900 
 
 my %occupancy;
 
-ReadFile($input1, 1, 2, $Col_coord, $Col_signal, \%occupancy);
-ReadFile($input2, 2, 1, $Col_coord, $Col_signal, \%occupancy);
+ReadFile($input1, 1, 2, $Col_coord, $Col_signal,$Col_StDev,$Col_RelErr, \%occupancy);
+ReadFile($input2, 2, 1, $Col_coord, $Col_signal,$Col_StDev,$Col_RelErr, \%occupancy);
 
 # open pipe to Gzip or open text file for writing
 my ($out_file,$gz_out_file, $OUT1_FHs, $OUT2_FHs);
@@ -223,35 +245,61 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
 	my $occup1 = $occupancy{$position}{1};
 	my $occup2 = $occupancy{$position}{2};
 	
+	my $stdev1 = $occupancy{$position}{1}{'stdev'};
+	my $stdev2 = $occupancy{$position}{2}{'stdev'};
+
+	my $relerr1 = $occupancy{$position}{1}{'relerr'};
+	my $relerr2 = $occupancy{$position}{2}{'relerr'};
+	
 	my $norm_difference= ($occup1-$occup2)/($occup1+$occup2);
 
     my $start_region = $position-$windowSize;
     my $end_region = $position;
     my $above_below_flag="between";
     if (($norm_difference > $threshold1) &&  ($occup1 > 0) && ($occup2 > 0)) {
-        print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
+		if($withError) {
+			print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $stdev1, $relerr1, $occup2, $stdev2, $relerr2),"\n";
+		} else {
+			print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
+		}
 		$above_counter++;
 		$above_below_flag="above";
     }
     elsif (($norm_difference > $threshold1) &&  ($allowNull)) {
-        print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
+		if($withError) {
+			print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $stdev1, $relerr1, $occup2, $stdev2, $relerr2),"\n";
+		} else {
+			print $OUT1_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
+		}
 		$above_counter++;
 		$above_below_flag="above";
     }
 	
     if (($norm_difference < $threshold2) &&  ($occup1 > 0) && ($occup2 > 0)){
-        print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1, $occup2),"\n";
+		if($withError) {
+			print $OUT2_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $stdev1, $relerr1, $occup2, $stdev2, $relerr2),"\n";
+		} else {
+			print $OUT2_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
+		}
 		$below_counter++;
 		$above_below_flag="below";
     }
     elsif (($norm_difference < $threshold2) &&  ($allowNull)){
-        print $OUT2_FHs join("\t",$chromosome, $start_region, $end_region, $norm_difference, $occup1, $occup2),"\n";
+		if($withError) {
+			print $OUT2_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $stdev1, $relerr1, $occup2, $stdev2, $relerr2),"\n";
+		} else {
+			print $OUT2_FHs join("\t",$chromosome, $start_region , $end_region, $norm_difference , $occup1, $occup2),"\n";
+		}
 		$below_counter++;
 		$above_below_flag="below";
     }
     if ($verbose) {
 	#code
-	print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1,$occup2), "\n";
+		if($withError) {
+			print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1,$stdev1, $relerr1, $occup2, $stdev2, $relerr2), "\n";
+		} else {
+			print STDERR join("\t",$above_below_flag, $chromosome, $start_region, $end_region, $norm_difference, $occup1,$occup2 ), "\n";
+		}
     }
 	
 }
@@ -276,7 +324,7 @@ exit;
 #--------------------------------------------------------------------------
 # read compressed occupancy file
 sub ReadFile {
-    my ($in_file, $filename1, $filename2, $col_coords, $col_occup, $occupancy_hashref) = @_;
+    my ($in_file, $filename1, $filename2, $col_coords, $col_occup, $col_stdev,$col_relerr, $occupancy_hashref) = @_;
     my $filesize = -s $in_file; #determine file size in bytes
     my $size_counter_step=int($filesize/100);
     $filesize = int($filesize/1048576); # filesize in megabytes
@@ -292,6 +340,12 @@ sub ReadFile {
 	if ( $in_file =~ (/.*\.gz$/) ) {
 		$inFH = IO::Uncompress::Gunzip->new( $in_file )
 		or die "IO::Uncompress::Gunzip failed: $IO::Uncompress::Gunzip::GunzipError\n";
+		
+		use constant MIN_COMPRESS_FACTOR => 250;
+		my $outer_bytes = -s $in_file;
+		my $inner_bytes = get_isize( $in_file );
+		$inner_bytes += 4294967296 if( $inner_bytes < $outer_bytes * MIN_COMPRESS_FACTOR );
+		$filesize = int($inner_bytes/1048576);
 	}
 	else { open( $inFH, "<", $in_file ) or die "error: $in_file cannot be opened:$!"; }
 
@@ -302,8 +356,6 @@ sub ReadFile {
     my $counter = 0;
     
     my $regex_split_newline='\n';
-    
-    my $processed_memory_size = 0;
     my $offset=0;
         
     while ((my $n = read($inFH, $buffer, $BUFFER_SIZE)) !=0) {
@@ -318,27 +370,53 @@ sub ReadFile {
 			push (@string, split("\t",$line));
 			my $pos = $string[$col_coords]; $pos+=0;
 			my $occup = $string[$col_occup]; $occup+=0;
+			my $stdev= $string[$col_stdev]; $stdev+=0;
+			my $relerr= $string[$col_relerr]; $relerr+=0;
+
 			if ($occup==0) { undef @string; next; }
 			
+			
+			
 			$occupancy_hashref->{$pos}->{$filename1} =  $occup;
+			$occupancy_hashref->{$pos}->{$filename1}->{'stdev'} = $stdev;
+			$occupancy_hashref->{$pos}->{$filename1}->{'relerr'} = $relerr;
+
 			if(! exists ($occupancy_hashref->{$pos}->{$filename2}) ) { $occupancy_hashref->{$pos}->{$filename2}=0; }
+			if(! exists ($occupancy_hashref->{$pos}->{$filename2}->{'stdev'}) ) { $occupancy_hashref->{$pos}->{$filename2}->{'stdev'}=0; }
+			if(! exists ($occupancy_hashref->{$pos}->{$filename2}->{'relerr'}) ) { $occupancy_hashref->{$pos}->{$filename2}->{'relerr'}=0; }
 			undef @string;
+			
+			if ( $counter % 120000) { }
+					else {
+						  my $percents = sprintf("%.2f", 100*$offset/(1048576*$filesize));
+						  my $processed_fs = sprintf("%.2f", $offset/1048576);
+						  my ($progress_seconds,$progress_minutes,$progress_hours,$elapsed_time) = (0,0,0,0);
+						  $progress_seconds = time()-$timer2;
+						  if ($progress_seconds>=3600) { $progress_hours=floor($progress_seconds/3600); }
+						  if ($progress_seconds>=60) { $progress_minutes=floor($progress_seconds/60)-60*$progress_hours; }
+						  $progress_seconds=$progress_seconds-3600*$progress_hours-60*$progress_minutes;
+						  $elapsed_time=join("", $progress_hours,"h:",$progress_minutes,"m:",$progress_seconds,"s");
+
+						  print STDERR $processed_fs," MBs from $filesize MBs (",$percents,"%) processed in ", $elapsed_time, ".                        \r";
+						  }
 			$counter++;
+
         }
-        $processed_memory_size += $n;
         $offset += $n;
-        if(int($processed_memory_size/1048576)>= $filesize/10) {
-            $processed_memory_size=0;
-			print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.                         \r";
-            }
         undef @lines;
         $buffer = "";
     }
     
-    my $duration = time()-$timer2;
-    
-    print STDERR int($offset/1048576), " Mbs processed in ", time()-$timer2, " seconds.\ndone.\n";
-	print STDERR "$counter positions added\n";
+	my ($progress_seconds,$progress_minutes,$progress_hours,$elapsed_time) = (0,0,0,0);
+	$progress_seconds = time()-$timer2;
+	if ($progress_seconds>=3600) { $progress_hours=floor($progress_seconds/3600); }
+	if ($progress_seconds>=60) { $progress_minutes=floor($progress_seconds/60)-60*$progress_hours; }
+	$progress_seconds=$progress_seconds-3600*$progress_hours-60*$progress_minutes;
+	$elapsed_time=join("", $progress_hours,"h:",$progress_minutes,"m:",$progress_seconds,"s");
+
+    print STDERR "\n",int($offset/1048576), " Mbs processed in ", $elapsed_time, ".\ndone.\n";
+	print STDERR "$counter positions added to DB\n";
+
 
     close($inFH) or die $!;
     return;
@@ -386,4 +464,42 @@ sub check_opts {
 		);
 	}
 
+}
+
+sub get_isize
+{
+   my ($file) = @_;
+
+   my $isize_len = 4;
+
+   # create a handle we can seek
+   my $FH;
+   unless( open( $FH, '<:raw', $file ) )
+   {
+      die "Failed to open $file: $!";
+   }
+   my $io;
+   my $FD = fileno($FH);
+   unless( $io = IO::Handle->new_from_fd( $FD, 'r' ) )
+   {
+      die "Failed to create new IO::Handle for $FD: $!";
+   }
+
+   # seek back from EOF
+   unless( $io->IO::Seekable::seek( "-$isize_len", 2 ) ) 
+   {
+      die "Failed to seek $isize_len from EOF: $!"
+   }
+
+   # read from here into mod32_isize
+   my $mod32_isize;
+   unless( my $bytes_read = $io->read( $mod32_isize, $isize_len ) )
+   {
+      die "Failed to read $isize_len bytes; read $bytes_read bytes instead: $!";
+   }
+
+   # convert mod32 to decimal by unpacking value
+   my $dec_isize = unpack( 'V', $mod32_isize );
+
+   return $dec_isize;
 }

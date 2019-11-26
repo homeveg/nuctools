@@ -5,3 +5,4 @@ aggregate_profile.v2.pl
 aggregate_profile_dir.pl
 aggregate_profile.running_windows.pl
 *.html
+CMB/Win_ClusterMapBuilder_web.exe

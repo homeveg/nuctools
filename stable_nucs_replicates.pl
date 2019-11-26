@@ -257,17 +257,15 @@ for my $position ( sort {$a<=>$b} keys %occupancy) {
     $j++;
     my @temp; my $coord;
     for my $name ( sort keys %{ $occupancy{$position} }) {
-	if ( ($header==0) && ($addData eq "yes") ){ print OUT "\t$name"; }
-	my $occup;
-	if ($NormFactors{$name}==0) {
-	    print STDERR "index:$j\tname:$name\tposition:$position\tnorm factor:$NormFactors{$name}\toccupancy:$occupancy{$position}{$name}\tratio:NA\n";
-	}
-	else {
-	    $occup=$occupancy{$position}{$name}/$NormFactors{$name};
-
-	}
-
-	push(@temp, $occup);
+		if ( ($header==0) && ($addData eq "yes") ){ print OUT "\t$name"; }
+		my $occup;
+		if ($NormFactors{$name}==0) {
+			print STDERR "index:$j\tname:$name\tposition:$position\tnorm factor:$NormFactors{$name}\toccupancy:$occupancy{$position}{$name}\tratio:NA\n";
+		}
+		else {
+			$occup=$occupancy{$position}{$name}/$NormFactors{$name};
+		}
+		push(@temp, $occup);
     }
     if ($header == 0) { print OUT "\n"; }
     $header=1;
